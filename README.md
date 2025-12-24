@@ -5,7 +5,7 @@
 [![Discord](https://img.shields.io/discord/754884471324672040?style=for-the-badge&logo=discord&label=Discord)](https://discord.gg/tPWjMwK)
 [![Follow on Bluesky](https://img.shields.io/badge/Bluesky-tinyBigGAMES-blue?style=for-the-badge&logo=bluesky)](https://bsky.app/profile/tinybiggames.com)
 
-A minimal systems programming language that compiles to native executables via C.
+A minimal systems programming language that compiles to native executables via C99.
 
 </div>
 
