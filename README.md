@@ -90,7 +90,7 @@ end.
 
 ```pax
 var
-  numbers: array[] of int32;
+  numbers: array of int32;
   i: int32;
 
 begin
