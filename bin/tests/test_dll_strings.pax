@@ -1,0 +1,54 @@
+module dll test_dll_strings;
+
+// DLL that exports string manipulation routines
+// Tests GC memory management across EXE/DLL boundary
+
+// Append text to a string and return new string
+public routine AppendText(const s: string; const suffix: string): string;
+begin
+  return s + suffix;
+end;
+
+// Create a greeting from a name
+public routine MakeGreeting(const name: string): string;
+begin
+  return 'Hello, ' + name + '!';
+end;
+
+// Modify string by making it uppercase (simple version - just prepend marker)
+public routine MarkString(const s: string): string;
+begin
+  return '[DLL] ' + s;
+end;
+
+// Return a string created entirely in the DLL
+public routine GetDllMessage(): string;
+begin
+  return 'This string was allocated in the DLL';
+end;
+
+// Take two strings, concatenate with separator
+public routine JoinStrings(const a: string; const b: string; const sep: string): string;
+begin
+  return a + sep + b;
+end;
+
+// Add emoji decorations to a string
+public routine AddEmoji(const s: string): string;
+begin
+  return '🎉 ' + s + ' 🚀';
+end;
+
+// Return a string with various emojis created in DLL
+public routine GetEmojiMessage(): string;
+begin
+  return '👋 Hello from DLL! 🌍🔥💯';
+end;
+
+// Wrap text with custom emoji prefix and suffix
+public routine WrapWithEmoji(const s: string; const prefix: string; const suffix: string): string;
+begin
+  return prefix + ' ' + s + ' ' + suffix;
+end;
+
+end.

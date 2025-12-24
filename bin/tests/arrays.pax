@@ -1,0 +1,86 @@
+module exe arrays;
+
+// Test static and dynamic arrays
+
+type
+  TIntArray = array[] of int32;
+  TFixedArray = array[0..9] of int32;
+  TMatrix = array[0..2] of array[0..2] of int32;
+
+var
+  // Static arrays
+  fixed: TFixedArray;
+  matrix: TMatrix;
+  
+  // Dynamic arrays
+  dyn: TIntArray;
+  
+  // Inline declarations
+  nums: array[0..4] of int32;
+  data: array[] of int64;
+  
+  i: int32;
+  sum: int32;
+  count: int64;
+
+begin
+  // Static array access
+  fixed[0] := 10;
+  fixed[1] := 20;
+  fixed[2] := 30;
+  
+  sum := fixed[0] + fixed[1] + fixed[2];
+  
+  // Initialize with loop
+  for i := 0 to 9 do
+    fixed[i] := i * 10;
+  end;
+  
+  // Sum array
+  sum := 0;
+  for i := 0 to 9 do
+    sum := sum + fixed[i];
+  end;
+  
+  // Matrix (2D array)
+  matrix[0][0] := 1;
+  matrix[0][1] := 2;
+  matrix[0][2] := 3;
+  matrix[1][0] := 4;
+  matrix[1][1] := 5;
+  matrix[1][2] := 6;
+  matrix[2][0] := 7;
+  matrix[2][1] := 8;
+  matrix[2][2] := 9;
+  
+  // Dynamic array - allocate
+  setlength(dyn, 5);
+  
+  // Dynamic array - access
+  dyn[0] := 100;
+  dyn[1] := 200;
+  dyn[2] := 300;
+  dyn[3] := 400;
+  dyn[4] := 500;
+  
+  // Get length
+  count := len(dyn);
+  
+  // Resize dynamic array
+  setlength(dyn, 10);
+  dyn[5] := 600;
+  
+  // Inline static array
+  nums[0] := 1;
+  nums[1] := 2;
+  nums[2] := 3;
+  nums[3] := 4;
+  nums[4] := 5;
+  
+  // Inline dynamic array
+  setlength(data, 3);
+  data[0] := 1000000000;
+  data[1] := 2000000000;
+  data[2] := 3000000000;
+  
+end.

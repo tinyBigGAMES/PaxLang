@@ -1,0 +1,7 @@
+module exe badtest;
+
+// This should trigger an error - "external" is not a valid declaration starter
+external routine printf(const fmt: pointer to char; ...): int32 from 'msvcrt.dll';
+
+begin
+end.

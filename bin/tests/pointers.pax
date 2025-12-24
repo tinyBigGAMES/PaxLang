@@ -1,0 +1,67 @@
+module exe pointers;
+
+// Test pointer operations
+
+type
+  TPoint = record
+    x: int32;
+    y: int32;
+  end;
+  
+  PPoint = pointer to TPoint;
+  PInt32 = pointer to int32;
+
+var
+  pt: TPoint;
+  ppt: PPoint;
+  pval: PInt32;
+  
+  val: int32;
+  ptr: pointer;
+
+begin
+  // Pointer to record - allocate
+  new(ppt);
+  
+  // Access through pointer (dereference + field)
+  ppt^.x := 100;
+  ppt^.y := 200;
+  
+  // Read back
+  val := ppt^.x + ppt^.y;  // 300
+  
+  // Copy to local
+  pt.x := ppt^.x;
+  pt.y := ppt^.y;
+  
+  // Free the pointer
+  dispose(ppt);
+  
+  // Pointer to simple type
+  new(pval);
+  pval^ := 42;
+  val := pval^;  // 42
+  dispose(pval);
+  
+  // Nil pointer
+  ppt := nil;
+  ptr := nil;
+  
+  // Allocate again
+  new(ppt);
+  ppt^.x := 10;
+  ppt^.y := 20;
+  
+  // Pointer comparison (check if nil)
+  if ppt <> nil then
+    val := ppt^.x;
+  end;
+  
+  dispose(ppt);
+  ppt := nil;
+  
+  if ppt = nil then
+    val := 0;
+  end;
+  
+end.

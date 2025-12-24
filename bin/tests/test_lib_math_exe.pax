@@ -1,0 +1,95 @@
+module exe test_lib_math_exe;
+
+// Link the static library using #addfile
+#addfile 'output/lib/test_lib_math.a'
+
+
+type
+  pchar = pointer to char;
+
+// Import C runtime for printing
+routine printf(const fmt: pchar; ...): int32; external 'msvcrt.dll';
+
+// Import routines from static library (no DLL - linked at compile time)
+routine AddInt(const a: int32; const b: int32): int32; external;
+routine MulInt(const a: int32; const b: int32): int32; external;
+routine Factorial(const n: int32): int32; external;
+routine Power(const base: int32; const exp: int32): int32; external;
+routine IsEven(const n: int32): boolean; external;
+routine AbsInt(const n: int32): int32; external;
+
+var
+  a: int32;
+  b: int32;
+  result: int32;
+
+begin
+  printf('=== test_lib_math (Static Library) ===\n');
+  printf('\n');
+
+  // Test 1: Addition
+  printf('[Test 1] AddInt\n');
+  a := 25;
+  b := 17;
+  result := AddInt(a, b);
+  printf('  %d + %d = %d\n', a, b, result);
+  printf('\n');
+
+  // Test 2: Multiplication
+  printf('[Test 2] MulInt\n');
+  a := 7;
+  b := 8;
+  result := MulInt(a, b);
+  printf('  %d * %d = %d\n', a, b, result);
+  printf('\n');
+
+  // Test 3: Factorial
+  printf('[Test 3] Factorial\n');
+  a := 5;
+  result := Factorial(a);
+  printf('  %d! = %d\n', a, result);
+  a := 10;
+  result := Factorial(a);
+  printf('  %d! = %d\n', a, result);
+  printf('\n');
+
+  // Test 4: Power
+  printf('[Test 4] Power\n');
+  a := 2;
+  b := 10;
+  result := Power(a, b);
+  printf('  %d^%d = %d\n', a, b, result);
+  a := 3;
+  b := 5;
+  result := Power(a, b);
+  printf('  %d^%d = %d\n', a, b, result);
+  printf('\n');
+
+  // Test 5: IsEven
+  printf('[Test 5] IsEven\n');
+  a := 42;
+  if IsEven(a) then
+    printf('  %d is even\n', a)
+  else
+    printf('  %d is odd\n', a);
+  end;
+  a := 17;
+  if IsEven(a) then
+    printf('  %d is even\n', a)
+  else
+    printf('  %d is odd\n', a);
+  end;  
+  printf('\n');
+
+  // Test 6: AbsInt
+  printf('[Test 6] AbsInt\n');
+  a := -123;
+  result := AbsInt(a);
+  printf('  |%d| = %d\n', a, result);
+  a := 456;
+  result := AbsInt(a);
+  printf('  |%d| = %d\n', a, result);
+  printf('\n');
+
+  printf('=== All Tests Complete ===\n');
+end.

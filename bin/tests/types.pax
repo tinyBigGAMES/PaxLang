@@ -1,0 +1,79 @@
+module exe types;
+
+// Test type casting and sizeof
+
+type
+  TPoint = record
+    x: int32;
+    y: int32;
+  end;
+  
+  TColor = uint32;
+
+var
+  i8: int8;
+  i16: int16;
+  i32: int32;
+  i64: int64;
+  u8: uint8;
+  u32: uint32;
+  f32: float32;
+  f64: float64;
+  b: boolean;
+  c: char;
+  size: int64;
+  ptr: pointer;
+  pt: TPoint;
+
+begin
+  // Integer conversions
+  i32 := 100;
+  i64 := int64(i32);    // widen
+  i16 := int16(i32);    // narrow
+  i8 := int8(i32);      // narrow
+  
+  // Unsigned conversions
+  u32 := 255;
+  u8 := uint8(u32);     // narrow
+  i32 := int32(u32);    // unsigned to signed
+  
+  // Float conversions
+  f64 := 3.14159;
+  f32 := float32(f64);  // narrow
+  f64 := float64(f32);  // widen
+  
+  // Integer to float
+  i32 := 42;
+  f64 := float64(i32);
+  
+  // Float to integer (truncates)
+  f64 := 3.99;
+  i32 := int32(f64);    // 3
+  
+  // Boolean
+  b := true;
+  i32 := int32(b);      // 1
+  b := boolean(1);      // true
+  b := boolean(0);      // false
+  
+  // Pointer casts
+  ptr := nil;
+  i64 := int64(ptr);    // pointer to integer
+  ptr := pointer(i64);  // integer to pointer
+  
+  // Sizeof for built-in types
+  size := sizeof(int8);     // 1
+  size := sizeof(int16);    // 2
+  size := sizeof(int32);    // 4
+  size := sizeof(int64);    // 8
+  size := sizeof(float32);  // 4
+  size := sizeof(float64);  // 8
+  size := sizeof(boolean);  // 1
+  size := sizeof(char);     // 1
+  size := sizeof(pointer);  // 8
+  
+  // Sizeof for custom types
+  size := sizeof(TPoint);   // 8 (two int32s)
+  size := sizeof(TColor);   // 4
+  
+end.

@@ -1,0 +1,48 @@
+module exe imports;
+
+// Test importing another module
+
+import mathlib;
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+var
+  a: int32;
+  b: int32;
+  sum: int32;
+  diff: int32;
+  prod: int32;
+  sq: int32;
+
+  s1: string;
+  s2: string;
+  s3: string;
+
+begin
+  a := 10;
+  b := 3;
+  
+  // Call imported routines with qualified names
+  sum := mathlib.Add(a, b);    // 13
+  diff := mathlib.Sub(a, b);   // 7
+  prod := mathlib.Mul(a, b);   // 30
+  sq := mathlib.Square(5);     // 25
+  
+  printf('=== Import Test ===\n');
+  printf('a = %d, b = %d\n', a, b);
+  printf('Add(a, b) = %d\n', sum);
+  printf('Sub(a, b) = %d\n', diff);
+  printf('Mul(a, b) = %d\n', prod);
+  printf('Square(5) = %d\n', sq);
+  
+  // Use in expressions
+  sum := mathlib.Add(mathlib.Mul(2, 3), mathlib.Square(2));  // 6 + 4 = 10
+  printf('Add(Mul(2,3), Square(2)) = %d\n', sum);
+  
+  s1 := 'Hello';
+  s2 := 'World';
+  s3 := s1 + ' ' + s2;  // Should call pax_string_concat
+
+  printf('s3 = %s', pointer to char(s3));  
+  
+end.

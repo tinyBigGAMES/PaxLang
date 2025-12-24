@@ -1,0 +1,68 @@
+module exe records;
+
+// Test record types and field access
+
+type
+  TPoint = record
+    x: int32;
+    y: int32;
+  end;
+  
+  TRect = record
+    left: int32;
+    top: int32;
+    right: int32;
+    bottom: int32;
+  end;
+  
+  TColorPoint = record(TPoint)
+    color: uint32;
+  end;
+  
+  TNestedRecord = record
+    origin: TPoint;
+    size: TPoint;
+  end;
+
+var
+  pt: TPoint;
+  rect: TRect;
+  cpt: TColorPoint;
+  nested: TNestedRecord;
+  width: int32;
+  height: int32;
+
+begin
+  // Simple field access
+  pt.x := 10;
+  pt.y := 20;
+  
+  // Use fields in expressions
+  width := pt.x * 2;
+  height := pt.y + 5;
+  
+  // Rectangle
+  rect.left := 0;
+  rect.top := 0;
+  rect.right := 100;
+  rect.bottom := 50;
+  
+  width := rect.right - rect.left;
+  height := rect.bottom - rect.top;
+  
+  // Extended record (inherits x, y from TPoint)
+  cpt.x := 5;
+  cpt.y := 10;
+  cpt.color := $FF0000;  // Red
+  
+  // Nested records
+  nested.origin.x := 0;
+  nested.origin.y := 0;
+  nested.size.x := 640;
+  nested.size.y := 480;
+  
+  // Copy values between fields
+  pt.x := nested.origin.x;
+  pt.y := nested.origin.y;
+  
+end.

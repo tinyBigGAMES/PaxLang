@@ -1,0 +1,120 @@
+module exe test_dll_strings_exe;
+
+#librarypath 'output'
+
+// EXE that tests string passing across DLL boundary
+// Validates GC memory management between EXE and DLL
+
+type
+  pchar = pointer to char;
+
+// Import C runtime for printing
+routine printf(const fmt: pchar; ...): int32; external 'msvcrt.dll';
+
+// Import Windows API for UTF-8 console output
+routine SetConsoleOutputCP(const cp: uint32): int32; external 'kernel32.dll';
+
+// Import routines from our test DLL
+routine AppendText(const s: string; const suffix: string): string; external 'test_dll_strings.dll';
+routine MakeGreeting(const name: string): string; external 'test_dll_strings.dll';
+routine MarkString(const s: string): string; external 'test_dll_strings.dll';
+routine GetDllMessage(): string; external 'test_dll_strings.dll';
+routine JoinStrings(const a: string; const b: string; const sep: string): string; external 'test_dll_strings.dll';
+routine AddEmoji(const s: string): string; external 'test_dll_strings.dll';
+routine GetEmojiMessage(): string; external 'test_dll_strings.dll';
+routine WrapWithEmoji(const s: string; const prefix: string; const suffix: string): string; external 'test_dll_strings.dll';
+
+var
+  s1: string;
+  s2: string;
+  result: string;
+
+begin
+  // Set console to UTF-8 for emoji display
+  SetConsoleOutputCP(65001);
+
+  printf('=== test_dll_strings ===\n');
+  printf('\n');
+
+  // Test 1: Append text
+  printf('[Test 1] AppendText\n');
+  s1 := 'Hello';
+  s2 := ' World';
+  result := AppendText(s1, s2);
+  printf('  EXE created: "%s" and "%s"\n', pchar(s1), pchar(s2));
+  printf('  DLL returned: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 2: Make greeting
+  printf('[Test 2] MakeGreeting\n');
+  s1 := 'Pax';
+  result := MakeGreeting(s1);
+  printf('  EXE passed name: "%s"\n', pchar(s1));
+  printf('  DLL returned: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 3: Mark string
+  printf('[Test 3] MarkString\n');
+  s1 := 'Test Message';
+  result := MarkString(s1);
+  printf('  EXE passed: "%s"\n', pchar(s1));
+  printf('  DLL marked: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 4: Get DLL-allocated string
+  printf('[Test 4] GetDllMessage\n');
+  result := GetDllMessage();
+  printf('  DLL allocated and returned: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 5: Join strings with separator
+  printf('[Test 5] JoinStrings\n');
+  s1 := 'First';
+  s2 := 'Second';
+  result := JoinStrings(s1, s2, ' | ');
+  printf('  EXE passed: "%s", "%s", " | "\n', pchar(s1), pchar(s2));
+  printf('  DLL joined: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 6: Chain operations - use DLL result as input
+  printf('[Test 6] Chained operations\n');
+  s1 := 'Base';
+  result := AppendText(s1, '-Extended');
+  result := MarkString(result);
+  printf('  Started with: "%s"\n', pchar(s1));
+  printf('  After chain: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 7: Emoji - DLL adds emojis
+  printf('[Test 7] AddEmoji (UTF-8)\n');
+  s1 := 'Pax Language';
+  result := AddEmoji(s1);
+  printf('  EXE passed: "%s"\n', pchar(s1));
+  printf('  DLL decorated: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 8: Emoji - DLL returns emoji string
+  printf('[Test 8] GetEmojiMessage (UTF-8)\n');
+  result := GetEmojiMessage();
+  printf('  DLL returned: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 9: Emoji - EXE passes emojis to DLL
+  printf('[Test 9] WrapWithEmoji (UTF-8)\n');
+  s1 := 'Success';
+  result := WrapWithEmoji(s1, '✅', '🎯');
+  printf('  EXE passed: "%s" with emojis\n', pchar(s1));
+  printf('  DLL wrapped: "%s"\n', pchar(result));
+  printf('\n');
+
+  // Test 10: Emoji in concatenation
+  printf('[Test 10] Emoji concatenation (UTF-8)\n');
+  s1 := '🔥 Fire';
+  s2 := 'Ice 🧊';
+  result := JoinStrings(s1, s2, ' meets ');
+  printf('  EXE passed: "%s" and "%s"\n', pchar(s1), pchar(s2));
+  printf('  DLL joined: "%s"\n', pchar(result));
+  printf('\n');
+
+  printf('=== All Tests Complete ===\n');
+end.

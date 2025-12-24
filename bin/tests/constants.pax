@@ -1,0 +1,58 @@
+module exe constants;
+
+// Test constant declarations
+
+const
+  // Integer constants
+  MAX_SIZE: int32 = 100;
+  MIN_SIZE: int32 = 1;
+  BUFFER_SIZE = 1024;
+  
+  // Hex constants
+  RED: uint32 = $FF0000;
+  GREEN: uint32 = $00FF00;
+  BLUE: uint32 = $0000FF;
+  WHITE: uint32 = $FFFFFF;
+  
+  // Float constants
+  PI: float64 = 3.14159265359;
+  E: float64 = 2.71828182845;
+  
+  // Boolean constants
+  DEBUG_MODE: boolean = true;
+  RELEASE_MODE: boolean = false;
+  
+  // Char constants
+  SPACE: char = ' ';
+  ZERO: char = '0';
+
+var
+  size: int32;
+  color: uint32;
+  area: float64;
+  radius: float64;
+
+begin
+  // Use constants
+  size := MAX_SIZE;
+  size := MIN_SIZE;
+  size := BUFFER_SIZE;
+  
+  // Color constants
+  color := RED;
+  color := GREEN;
+  color := BLUE;
+  
+  // Math with constants
+  radius := 5.0;
+  area := PI * radius * radius;
+  
+  // Conditional with constants
+  if DEBUG_MODE then
+    size := 1;
+  end;
+  
+  // Expression with constants
+  size := MAX_SIZE - MIN_SIZE;
+  
+end.

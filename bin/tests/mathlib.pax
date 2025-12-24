@@ -1,0 +1,31 @@
+module lib mathlib;
+
+// A simple math library module for testing imports
+
+public routine Add(const a: int32; const b: int32): int32;
+begin
+  return a + b;
+end;
+
+public routine Sub(const a: int32; const b: int32): int32;
+begin
+  return a - b;
+end;
+
+public routine Mul(const a: int32; const b: int32): int32;
+begin
+  return a * b;
+end;
+
+public routine Square(const x: int32): int32;
+begin
+  return x * x;
+end;
+
+// Private routine - not exported
+routine InternalHelper(const x: int32): int32;
+begin
+  return x + 1;
+end;
+
+end.

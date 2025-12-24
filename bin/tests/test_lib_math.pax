@@ -1,0 +1,57 @@
+module lib test_lib_math;
+
+// Static library providing math utilities
+// Will be linked into EXE at compile time via #addfile
+
+// Add two integers
+public routine AddInt(const a: int32; const b: int32): int32;
+begin
+  return a + b;
+end;
+
+// Multiply two integers
+public routine MulInt(const a: int32; const b: int32): int32;
+begin
+  return a * b;
+end;
+
+// Calculate factorial (recursive)
+public routine Factorial(const n: int32): int32;
+begin
+  if n <= 1 then
+    return 1;
+  else
+    return n * Factorial(n - 1);
+  end;
+end;
+
+// Calculate power (iterative)
+public routine Power(const base: int32; const exp: int32): int32;
+var
+  result: int32;
+  i: int32;
+begin
+  result := 1;
+  for i := 1 to exp do
+    result := result * base;
+  end;
+  return result;
+end;
+
+// Check if number is even
+public routine IsEven(const n: int32): boolean;
+begin
+  return (n mod 2) = 0;
+end;
+
+// Absolute value
+public routine AbsInt(const n: int32): int32;
+begin
+  if n < 0 then
+    return -n;
+  else
+    return n;
+  end;
+end;
+
+end.
