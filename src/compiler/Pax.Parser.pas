@@ -84,6 +84,7 @@ type
     // Types
     function ParseTypeDef(): PASTNode;
     function ParseRecordType(): PASTNode;
+    function ParseUnionType(): PASTNode;
     function ParseFieldDecl(): PASTNode;
     function ParseArrayType(): PASTNode;
     function ParsePointerType(): PASTNode;
@@ -1025,9 +1026,11 @@ end;
 
 function TPaxParser.ParseTypeDef(): PASTNode;
 begin
-  // RecordType | ArrayType | PointerType | SetType | RoutineType | TypeName
+  // RecordType | UnionType | ArrayType | PointerType | SetType | RoutineType | TypeName
   if Check(tkRecord) then
     Result := ParseRecordType()
+  else if Check(tkUnion) then
+    Result := ParseUnionType()
   else if Check(tkArray) then
     Result := ParseArrayType()
   else if Check(tkPointer) then
@@ -1045,10 +1048,29 @@ var
   LToken: TToken;
   LParentType: PASTNode;
   LField: PASTNode;
+  LAnonUnion: PASTNode;
 begin
-  // "record" ["(" TypeName ")"] {FieldDecl} "end"
+  // "record" ["packed"] ["align" "(" Integer ")"] ["(" TypeName ")"] {FieldDecl | AnonUnion} "end"
   LToken := Expect(tkRecord);
   Result := CreateASTNodeWithToken(nkRecordType, LToken);
+
+  // Optional packed modifier
+  if Match(tkPacked) then
+    Result^.IsPacked := True;
+
+  // Optional align modifier
+  if Match(tkAlign) then
+  begin
+    Expect(tkLParen);
+    if Check(tkInteger) then
+    begin
+      Result^.Alignment := FCurrentToken.IntValue;
+      Advance();
+    end
+    else
+      Error(RSParserExpectedInteger);
+    Expect(tkRParen);
+  end;
 
   // Optional parent type
   if Match(tkLParen) then
@@ -1062,12 +1084,57 @@ begin
     Expect(tkRParen);
   end;
 
-  // Fields
-  while Check(tkIdentifier) do
+  // Fields and anonymous unions
+  while Check(tkIdentifier) or Check(tkUnion) do
   begin
-    LField := ParseFieldDecl();
-    if LField <> nil then
-      AddASTChild(Result, LField);
+    if Check(tkUnion) then
+    begin
+      // Anonymous union inside record
+      LAnonUnion := ParseUnionType();
+      if LAnonUnion <> nil then
+        AddASTChild(Result, LAnonUnion);
+      // Consume trailing semicolon after anonymous union's end
+      Expect(tkSemicolon);
+    end
+    else
+    begin
+      LField := ParseFieldDecl();
+      if LField <> nil then
+        AddASTChild(Result, LField);
+    end;
+  end;
+
+  Expect(tkEnd);
+end;
+
+function TPaxParser.ParseUnionType(): PASTNode;
+var
+  LToken: TToken;
+  LField: PASTNode;
+  LAnonRecord: PASTNode;
+begin
+  // "union" {FieldDecl | AnonRecord} "end"
+  LToken := Expect(tkUnion);
+  Result := CreateASTNodeWithToken(nkUnionType, LToken);
+
+  // Fields and anonymous records (all at offset 0 in a union)
+  while Check(tkIdentifier) or Check(tkRecord) do
+  begin
+    if Check(tkRecord) then
+    begin
+      // Anonymous record inside union
+      LAnonRecord := ParseRecordType();
+      if LAnonRecord <> nil then
+        AddASTChild(Result, LAnonRecord);
+      // Consume trailing semicolon after anonymous record's end
+      Expect(tkSemicolon);
+    end
+    else
+    begin
+      LField := ParseFieldDecl();
+      if LField <> nil then
+        AddASTChild(Result, LField);
+    end;
   end;
 
   Expect(tkEnd);
@@ -1078,7 +1145,7 @@ var
   LToken: TToken;
   LTypeNode: PASTNode;
 begin
-  // Identifier ":" TypeName ";"
+  // Identifier ":" TypeName [":" Integer] ";"
   LToken := ExpectIdentifier();
   Result := CreateASTNodeWithToken(nkFieldDecl, LToken);
   Result^.NodeName := LToken.Lexeme;
@@ -1088,6 +1155,18 @@ begin
   LTypeNode := ParseTypeName();
   if LTypeNode <> nil then
     AddASTChild(Result, LTypeNode);
+
+  // Optional bit width for bit fields
+  if Match(tkColon) then
+  begin
+    if Check(tkInteger) then
+    begin
+      Result^.BitWidth := FCurrentToken.IntValue;
+      Advance();
+    end
+    else
+      Error(RSParserExpectedInteger);
+  end;
 
   Expect(tkSemicolon);
 end;
@@ -1871,7 +1950,7 @@ var
   LOpToken: TToken;
   LOperand: PASTNode;
 begin
-  // Factor = "not" Factor | "-" Factor | "+" Factor | Primary
+  // Factor = "not" Factor | "-" Factor | "+" Factor | "address" "of" Factor | Primary
 
   if Check(tkNot) then
   begin
@@ -1901,6 +1980,17 @@ begin
 
     Result := CreateASTNodeWithToken(nkUnaryOp, LOpToken);
     Result^.Op := opPos;
+    AddASTChild(Result, LOperand);
+  end
+  else if Check(tkAddress) then
+  begin
+    // "address" "of" Factor
+    LOpToken := FCurrentToken;
+    Advance();
+    Expect(tkOf);
+    LOperand := ParseFactor();
+
+    Result := CreateASTNodeWithToken(nkAddressOf, LOpToken);
     AddASTChild(Result, LOperand);
   end
   else

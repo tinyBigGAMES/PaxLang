@@ -1,0 +1,81 @@
+module exe test_unions;
+
+// Test union types for C99 interop
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // Simple union - all fields share same memory
+  TIntFloat = union
+    AsInt: int32;
+    AsFloat: float32;
+  end;
+
+  // Union with different sizes - size = largest member
+  TValue = union
+    AsByte: uint8;
+    AsWord: uint16;
+    AsDWord: uint32;
+    AsQWord: uint64;
+  end;
+
+  // Union with array member
+  TColor = union
+    AsRGBA: uint32;
+    AsBytes: array[0..3] of uint8;
+  end;
+
+  // Win32-style LARGE_INTEGER
+  TLargeInteger = union
+    QuadPart: int64;
+    LowPart: uint32;
+    HighPart: int32;
+  end;
+
+var
+  intFloat: TIntFloat;
+  value: TValue;
+  color: TColor;
+  largeInt: TLargeInteger;
+
+begin
+  printf('=== Unions Test ===\n');
+  printf('\n');
+  
+  // Print sizes
+  printf('sizeof(TIntFloat)     = %lld (expected: 4)\n', sizeof(TIntFloat));
+  printf('sizeof(TValue)        = %lld (expected: 8)\n', sizeof(TValue));
+  printf('sizeof(TColor)        = %lld (expected: 4)\n', sizeof(TColor));
+  printf('sizeof(TLargeInteger) = %lld (expected: 8)\n', sizeof(TLargeInteger));
+  printf('\n');
+  
+  // Test simple union - write as int, read back
+  intFloat.AsInt := $3F800000;
+  printf('TIntFloat.AsInt   = 0x%X (IEEE 754 for 1.0f)\n', intFloat.AsInt);
+  printf('\n');
+  
+  // Test value union - all fields share same memory
+  value.AsQWord := $0102030405060708;
+  printf('TValue.AsQWord = 0x%llX\n', value.AsQWord);
+  printf('TValue.AsDWord = 0x%X (low 32 bits)\n', value.AsDWord);
+  printf('TValue.AsWord  = 0x%X (low 16 bits)\n', value.AsWord);
+  printf('TValue.AsByte  = 0x%X (low 8 bits)\n', value.AsByte);
+  printf('\n');
+  
+  // Test color union
+  color.AsRGBA := $FF00FF00;
+  printf('TColor.AsRGBA    = 0x%X\n', color.AsRGBA);
+  printf('TColor.AsBytes[0] = 0x%X\n', color.AsBytes[0]);
+  printf('TColor.AsBytes[1] = 0x%X\n', color.AsBytes[1]);
+  printf('TColor.AsBytes[2] = 0x%X\n', color.AsBytes[2]);
+  printf('TColor.AsBytes[3] = 0x%X\n', color.AsBytes[3]);
+  printf('\n');
+  
+  // Test large integer
+  largeInt.QuadPart := $123456789ABCDEF0;
+  printf('TLargeInteger.QuadPart = 0x%llX\n', largeInt.QuadPart);
+  printf('TLargeInteger.LowPart  = 0x%X\n', largeInt.LowPart);
+  printf('TLargeInteger.HighPart = 0x%X\n', largeInt.HighPart);
+  
+  printf('\n=== Test Complete ===\n');
+end.

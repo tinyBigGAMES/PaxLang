@@ -1,0 +1,91 @@
+// Test: Bit Fields
+// Tests C99 bit field syntax for compact flag storage
+
+module exe test_exe_bitfields;
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // Simple bit flags
+  TFlags = record packed
+    visible: boolean : 1;
+    enabled: boolean : 1;
+    selected: boolean : 1;
+    focused: boolean : 1;
+    reserved: uint8 : 4;
+  end;
+
+  // Hardware register style
+  TStatusReg = record packed
+    ready: boolean : 1;
+    busy: boolean : 1;
+    error: boolean : 1;
+    irq: boolean : 1;
+    mode: uint8 : 2;
+    priority: uint8 : 2;
+  end;
+
+  // Mixed fields with bit fields
+  TPacket = record packed
+    version: uint8 : 4;
+    headerLen: uint8 : 4;
+    service: uint8;
+    totalLen: uint16;
+    flags: uint8 : 3;
+    fragOffset: uint16 : 13;
+  end;
+
+  // Bit fields in union
+  TRegister = union
+    value: uint32;
+    bytes: array[0..3] of uint8;
+  end;
+
+var
+  flags: TFlags;
+  status: TStatusReg;
+  packet: TPacket;
+  reg: TRegister;
+
+begin
+  // Test TFlags
+  flags.visible := true;
+  flags.enabled := true;
+  flags.selected := false;
+  flags.focused := true;
+  
+  printf('TFlags size: %d\n', sizeof(TFlags));
+  printf('visible: %d\n', flags.visible);
+  printf('enabled: %d\n', flags.enabled);
+  printf('focused: %d\n', flags.focused);
+  
+  // Test TStatusReg
+  status.ready := true;
+  status.busy := false;
+  status.error := false;
+  status.irq := true;
+  status.mode := 2;
+  status.priority := 3;
+  
+  printf('\nTStatusReg size: %d\n', sizeof(TStatusReg));
+  printf('ready: %d\n', status.ready);
+  printf('mode: %d\n', status.mode);
+  printf('priority: %d\n', status.priority);
+  
+  // Test TPacket
+  packet.version := 4;
+  packet.headerLen := 5;
+  packet.service := 0;
+  packet.totalLen := 1500;
+  packet.flags := 2;
+  
+  printf('\nTPacket size: %d\n', sizeof(TPacket));
+  printf('version: %d\n', packet.version);
+  printf('headerLen: %d\n', packet.headerLen);
+  printf('totalLen: %d\n', packet.totalLen);
+  
+  // Test union
+  reg.value := $12345678;
+  printf('\nTRegister size: %d\n', sizeof(TRegister));
+  printf('value: %d\n', reg.value);
+end.

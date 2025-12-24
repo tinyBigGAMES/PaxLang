@@ -1,0 +1,99 @@
+module exe test_packed_records;
+
+// Test packed record types for C99 struct interop
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // Standard record (with padding)
+  TNormalHeader = record
+    magic: uint16;
+    version: uint8;
+    flags: uint8;
+    size: uint32;
+  end;
+
+  // Packed record (no padding)
+  TPackedHeader = record packed
+    magic: uint16;
+    version: uint8;
+    flags: uint8;
+    size: uint32;
+  end;
+
+  // Mixed sizes to demonstrate packing
+  TPackedMixed = record packed
+    a: uint8;
+    b: uint32;
+    c: uint8;
+    d: uint16;
+    e: uint8;
+  end;
+
+  // Network protocol header (typical use case)
+  TNetworkHeader = record packed
+    version: uint8;
+    headerLen: uint8;
+    totalLen: uint16;
+    id: uint16;
+    flags: uint16;
+    ttl: uint8;
+    protocol: uint8;
+    checksum: uint16;
+  end;
+
+  // Bitmap file header (Win32 style)
+  TBitmapHeader = record packed
+    bfType: uint16;
+    bfSize: uint32;
+    bfReserved1: uint16;
+    bfReserved2: uint16;
+    bfOffBits: uint32;
+  end;
+
+var
+  packedHdr: TPackedHeader;
+  netHdr: TNetworkHeader;
+  bmpHdr: TBitmapHeader;
+
+begin
+  printf('=== Packed Records Test ===\n');
+  printf('\n');
+  
+  // Print sizes
+  printf('sizeof(TNormalHeader)  = %lld (expected: 8 with padding)\n', sizeof(TNormalHeader));
+  printf('sizeof(TPackedHeader)  = %lld (expected: 8 = 2+1+1+4)\n', sizeof(TPackedHeader));
+  printf('sizeof(TPackedMixed)   = %lld (expected: 9 = 1+4+1+2+1)\n', sizeof(TPackedMixed));
+  printf('sizeof(TNetworkHeader) = %lld (expected: 12)\n', sizeof(TNetworkHeader));
+  printf('sizeof(TBitmapHeader)  = %lld (expected: 14)\n', sizeof(TBitmapHeader));
+  printf('\n');
+  
+  // Initialize and use packed header
+  packedHdr.magic := $4D42;
+  packedHdr.version := 1;
+  packedHdr.flags := 0;
+  packedHdr.size := 1024;
+  printf('TPackedHeader.magic = 0x%X\n', packedHdr.magic);
+  printf('TPackedHeader.size  = %d\n', packedHdr.size);
+  printf('\n');
+  
+  // Initialize network header
+  netHdr.version := 4;
+  netHdr.headerLen := 20;
+  netHdr.ttl := 64;
+  netHdr.protocol := 6;
+  printf('TNetworkHeader.version  = %d\n', netHdr.version);
+  printf('TNetworkHeader.ttl      = %d\n', netHdr.ttl);
+  printf('TNetworkHeader.protocol = %d (TCP)\n', netHdr.protocol);
+  printf('\n');
+  
+  // Initialize bitmap header
+  bmpHdr.bfType := $4D42;
+  bmpHdr.bfSize := 54 + 640 * 480 * 3;
+  bmpHdr.bfOffBits := 54;
+  printf('TBitmapHeader.bfType    = 0x%X (BM)\n', bmpHdr.bfType);
+  printf('TBitmapHeader.bfSize    = %d\n', bmpHdr.bfSize);
+  printf('TBitmapHeader.bfOffBits = %d\n', bmpHdr.bfOffBits);
+  
+  printf('\n=== Test Complete ===\n');
+end.

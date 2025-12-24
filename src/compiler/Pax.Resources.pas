@@ -78,6 +78,8 @@ resourcestring
   RSParserExpectedOnOrOff = 'Expected ''on'' or ''off''';
   RSParserExpectedTestName = 'Expected test name string';
   RSParserExpectedSetRange = 'Expected integer for set range';
+  RSParserExpectedInteger = 'Expected integer';
+  RSParserAlignmentExceedsMax = 'Alignment %d exceeds maximum supported alignment of %d bytes';
   RSParserLexerNotSet = 'Lexer not set';
   RSParserNoTokens = 'No tokens to parse';
 
@@ -145,6 +147,12 @@ resourcestring
   RSSemanticExternalMissingLib = 'External routine must specify library';
   RSSemanticParamStrNotInteger = 'ParamStr index must be an integer';
   RSSemanticDllInitBlock = 'DLL and library modules cannot have initialization blocks';
+  RSSemanticBitFieldWidth = 'Bit field width %d exceeds maximum %d bits for type ''%s''';
+  RSSemanticBitFieldPositive = 'Bit field width must be positive';
+  RSSemanticBitFieldType = 'Bit fields require integer or boolean type, found ''%s''';
+  RSSemanticFlexibleArrayLast = 'Flexible array member must be the last field in a record';
+  RSSemanticFlexibleArrayUnion = 'Flexible array members are not allowed in unions';
+  RSSemanticFlexibleArrayOnlyField = 'Flexible array member cannot be the only field in a record';
 
   //--------------------------------------------------------------------------
   // Warnings (W001-W099)

@@ -39,6 +39,7 @@ type
 
     // Types
     nkRecordType,
+    nkUnionType,
     nkArrayType,
     nkPointerType,
     nkSetType,
@@ -81,6 +82,7 @@ type
     nkArrayAccess,
     nkFieldAccess,
     nkDeref,
+    nkAddressOf,
     nkCall,
     nkTypeCast,
     nkSizeOf,
@@ -153,6 +155,10 @@ type
     IsExternal: Boolean;
     IsForwardTo: Boolean;
     IsVariadic: Boolean;
+    IsPacked: Boolean;
+    IsFlexibleArray: Boolean;  // For flexible array members (array[] of T)
+    Alignment: Integer;
+    BitWidth: Integer;  // For bit fields (0 = not a bit field)
 
     // External routine info
     ExternalLib: string;
@@ -196,6 +202,10 @@ begin
   Result^.IsExternal := False;
   Result^.IsForwardTo := False;
   Result^.IsVariadic := False;
+  Result^.IsPacked := False;
+  Result^.IsFlexibleArray := False;
+  Result^.Alignment := 0;
+  Result^.BitWidth := 0;
 
   Result^.ExternalLib := '';
 end;
@@ -269,6 +279,7 @@ begin
     nkParamDecl:      Result := 'ParamDecl';
     nkFieldDecl:      Result := 'FieldDecl';
     nkRecordType:     Result := 'RecordType';
+    nkUnionType:      Result := 'UnionType';
     nkArrayType:      Result := 'ArrayType';
     nkPointerType:    Result := 'PointerType';
     nkSetType:        Result := 'SetType';
@@ -307,6 +318,7 @@ begin
     nkArrayAccess:    Result := 'ArrayAccess';
     nkFieldAccess:    Result := 'FieldAccess';
     nkDeref:          Result := 'Deref';
+    nkAddressOf:      Result := 'AddressOf';
     nkCall:           Result := 'Call';
     nkTypeCast:       Result := 'TypeCast';
     nkSizeOf:         Result := 'SizeOf';

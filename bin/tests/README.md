@@ -10,6 +10,8 @@ This directory contains test files for the Pax compiler.
 | `expressions.pax` | Arithmetic & logic | +, -, *, /, div, mod, and, or, not, comparisons |
 | `control_flow.pax` | Control statements | if/else, while, for, repeat, case |
 | `records.pax` | Record types | Field access, nested records, extended records |
+| `test_packed_records.pax` | Packed records | C99 pragma pack, byte-aligned structs |
+| `test_unions.pax` | Union types | C99 unions, overlapping fields |
 | `arrays.pax` | Array types | Static arrays, dynamic arrays, setlength, len |
 | `pointers.pax` | Pointer operations | new, dispose, dereference, nil |
 | `routines.pax` | Functions/procedures | Parameters, locals, return, recursion, var params |

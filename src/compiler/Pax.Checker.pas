@@ -51,6 +51,7 @@ type
     function ResolveType(const ANode: PASTNode): TPaxType;
     function ResolveTypeRef(const ANode: PASTNode): TPaxType;
     function ResolveRecordType(const ANode: PASTNode): TPaxType;
+    function ResolveUnionType(const ANode: PASTNode): TPaxType;
     function ResolveArrayType(const ANode: PASTNode): TPaxType;
     function ResolvePointerType(const ANode: PASTNode): TPaxType;
     function ResolveSetType(const ANode: PASTNode): TPaxType;
@@ -90,6 +91,7 @@ type
     function CheckFieldAccess(const ANode: PASTNode): TPaxType;
     function CheckArrayAccess(const ANode: PASTNode): TPaxType;
     function CheckDeref(const ANode: PASTNode): TPaxType;
+    function CheckAddressOf(const ANode: PASTNode): TPaxType;
     function CheckCall(const ANode: PASTNode): TPaxType;
     function CheckTypeCast(const ANode: PASTNode): TPaxType;
     function CheckSizeOf(const ANode: PASTNode): TPaxType;
@@ -202,6 +204,7 @@ begin
   case ANode^.Kind of
     nkTypeRef:      Result := ResolveTypeRef(ANode);
     nkRecordType:   Result := ResolveRecordType(ANode);
+    nkUnionType:    Result := ResolveUnionType(ANode);
     nkArrayType:    Result := ResolveArrayType(ANode);
     nkPointerType:  Result := ResolvePointerType(ANode);
     nkSetType:      Result := ResolveSetType(ANode);
@@ -249,11 +252,26 @@ end;
 function TPaxChecker.ResolveRecordType(const ANode: PASTNode): TPaxType;
 var
   LI: Integer;
+  LJ: Integer;
   LChild: PASTNode;
   LFieldType: TPaxType;
   LParentType: TPaxType;
+  LAnonType: TPaxType;
+  LAnonField: TPaxField;
 begin
   Result := FTypes.CreateRecordType('');
+
+  // Propagate packed flag from AST
+  Result.IsPacked := ANode^.IsPacked;
+
+  // Propagate alignment from AST (TCC only supports up to 16-byte alignment)
+  if ANode^.Alignment > 0 then
+  begin
+    if ANode^.Alignment > 16 then
+      Error(ANode, ERR_SEMANTIC_INVALID_ALIGNMENT, RSParserAlignmentExceedsMax, [ANode^.Alignment, 16])
+    else
+      Result.Alignment := ANode^.Alignment;
+  end;
 
   for LI := 0 to GetASTChildCount(ANode) - 1 do
   begin
@@ -270,14 +288,136 @@ begin
     end
     else if LChild^.Kind = nkFieldDecl then
     begin
-      // Field
+      // Regular field
+      if GetASTChildCount(LChild) > 0 then
+        LFieldType := ResolveType(GetASTChild(LChild, 0))
+      else
+        LFieldType := FTypes.ErrorType;
+
+      // Add field and propagate bit width if present
+      LAnonField := Result.AddField(LChild^.NodeName, LFieldType);
+
+      // Validate and propagate bit field width
+      if LChild^.BitWidth > 0 then
+      begin
+        // Bit fields require integer or boolean types
+        if not LFieldType.IsInteger() and not LFieldType.IsBoolean() and not LFieldType.IsError() then
+          Error(LChild, ERR_SEMANTIC_BITFIELD_TYPE, RSSemanticBitFieldType, [GetTypeName(LFieldType)])
+        else if LChild^.BitWidth < 1 then
+          Error(LChild, ERR_SEMANTIC_BITFIELD_POSITIVE, RSSemanticBitFieldPositive)
+        else
+        begin
+          // Check bit width doesn't exceed type size
+          if LFieldType.IsBoolean() then
+          begin
+            // Boolean bit fields should be 1 bit max
+            if LChild^.BitWidth > 8 then
+              Error(LChild, ERR_SEMANTIC_BITFIELD_WIDTH, RSSemanticBitFieldWidth, [LChild^.BitWidth, 8, GetTypeName(LFieldType)])
+            else
+              LAnonField.BitWidth := LChild^.BitWidth;
+          end
+          else if LFieldType.IsInteger() then
+          begin
+            // Integer bit fields limited to type size in bits
+            if LChild^.BitWidth > LFieldType.Size * 8 then
+              Error(LChild, ERR_SEMANTIC_BITFIELD_WIDTH, RSSemanticBitFieldWidth, [LChild^.BitWidth, LFieldType.Size * 8, GetTypeName(LFieldType)])
+            else
+              LAnonField.BitWidth := LChild^.BitWidth;
+          end;
+        end;
+      end;
+    end
+    else if LChild^.Kind = nkUnionType then
+    begin
+      // Anonymous union - flatten its fields into this record
+      LAnonType := ResolveUnionType(LChild);
+      if LAnonType <> nil then
+      begin
+        for LJ := 0 to LAnonType.Fields.Count - 1 do
+        begin
+          LAnonField := LAnonType.Fields[LJ];
+          Result.AddField(LAnonField.FieldName, LAnonField.FieldType);
+        end;
+      end;
+    end;
+  end;
+
+  // Validate flexible array member rules
+  for LI := 0 to Result.Fields.Count - 1 do
+  begin
+    LFieldType := Result.Fields[LI].FieldType;
+    if (LFieldType <> nil) and LFieldType.IsArray() and LFieldType.IsFlexibleArray then
+    begin
+      // Flexible array must be the last field
+      if LI < Result.Fields.Count - 1 then
+        Error(ANode, ERR_SEMANTIC_FLEXIBLE_ARRAY_LAST, RSSemanticFlexibleArrayLast);
+
+      // Record must have at least one other field
+      if Result.Fields.Count = 1 then
+        Error(ANode, ERR_SEMANTIC_FLEXIBLE_ARRAY_ONLY_FIELD, RSSemanticFlexibleArrayOnlyField);
+    end;
+  end;
+end;
+
+function TPaxChecker.ResolveUnionType(const ANode: PASTNode): TPaxType;
+var
+  LI: Integer;
+  LJ: Integer;
+  LChild: PASTNode;
+  LFieldType: TPaxType;
+  LMaxSize: Integer;
+  LAnonType: TPaxType;
+  LAnonField: TPaxField;
+begin
+  Result := FTypes.CreateUnionType('');
+  LMaxSize := 0;
+
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if LChild^.Kind = nkFieldDecl then
+    begin
+      // Regular field - all fields at offset 0 in union
       if GetASTChildCount(LChild) > 0 then
         LFieldType := ResolveType(GetASTChild(LChild, 0))
       else
         LFieldType := FTypes.ErrorType;
 
       Result.AddField(LChild^.NodeName, LFieldType);
+
+      // Track max size for union (size = largest field)
+      if (LFieldType <> nil) and (LFieldType.Size > LMaxSize) then
+        LMaxSize := LFieldType.Size;
+    end
+    else if LChild^.Kind = nkRecordType then
+    begin
+      // Anonymous record - flatten its fields into this union
+      LAnonType := ResolveRecordType(LChild);
+      if LAnonType <> nil then
+      begin
+        for LJ := 0 to LAnonType.Fields.Count - 1 do
+        begin
+          LAnonField := LAnonType.Fields[LJ];
+          Result.AddField(LAnonField.FieldName, LAnonField.FieldType);
+        end;
+
+        // Track max size (anonymous struct size)
+        if LAnonType.Size > LMaxSize then
+          LMaxSize := LAnonType.Size;
+      end;
     end;
+  end;
+
+  // Union size is the size of its largest member
+  Result.Size := LMaxSize;
+
+  // Validate: flexible arrays not allowed in unions
+  for LI := 0 to Result.Fields.Count - 1 do
+  begin
+    LFieldType := Result.Fields[LI].FieldType;
+    if (LFieldType <> nil) and LFieldType.IsArray() and LFieldType.IsFlexibleArray then
+      Error(ANode, ERR_SEMANTIC_FLEXIBLE_ARRAY_UNION, RSSemanticFlexibleArrayUnion);
   end;
 end;
 
@@ -306,9 +446,12 @@ begin
   end
   else
   begin
-    // Dynamic array: [0]=element type
+    // Dynamic or flexible array: [0]=element type
     LElementType := ResolveType(GetASTChild(ANode, 0));
-    Result := FTypes.CreateDynamicArrayType(LElementType);
+    if ANode^.IsFlexibleArray then
+      Result := FTypes.CreateFlexibleArrayType(LElementType)
+    else
+      Result := FTypes.CreateDynamicArrayType(LElementType);
   end;
 end;
 
@@ -995,6 +1138,7 @@ begin
     nkFieldAccess:    Result := CheckFieldAccess(ANode);
     nkArrayAccess:    Result := CheckArrayAccess(ANode);
     nkDeref:          Result := CheckDeref(ANode);
+    nkAddressOf:      Result := CheckAddressOf(ANode);
     nkCall:           Result := CheckCall(ANode);
     nkTypeCast:       Result := CheckTypeCast(ANode);
     nkSizeOf:         Result := CheckSizeOf(ANode);
@@ -1189,7 +1333,7 @@ begin
 
   LBaseType := CheckExpression(LBaseNode);
 
-  if LBaseType.IsRecord() then
+  if LBaseType.IsRecord() or LBaseType.IsUnion() then
   begin
     LField := LBaseType.GetField(ANode^.NodeName);
     if LField <> nil then
@@ -1246,6 +1390,30 @@ begin
   end
   else if not LBaseType.IsError() then
     Error(ANode, ERR_SEMANTIC_DEREF_NON_POINTER, RSTypeCannotDeref, [GetTypeName(LBaseType)]);
+end;
+
+function TPaxChecker.CheckAddressOf(const ANode: PASTNode): TPaxType;
+var
+  LOperand: PASTNode;
+  LOperandType: TPaxType;
+begin
+  Result := FTypes.ErrorType;
+
+  if GetASTChildCount(ANode) = 0 then
+    Exit;
+
+  LOperand := GetASTChild(ANode, 0);
+  LOperandType := CheckExpression(LOperand);
+
+  // Operand must be an lvalue
+  if not IsLValue(LOperand) then
+  begin
+    Error(ANode, ERR_SEMANTIC_TYPE_MISMATCH, 'Cannot take address of non-lvalue');
+    Exit;
+  end;
+
+  // Return pointer to the operand's type
+  Result := FTypes.CreatePointerType(LOperandType);
 end;
 
 function TPaxChecker.CheckCall(const ANode: PASTNode): TPaxType;

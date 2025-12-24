@@ -68,6 +68,7 @@ type
     tkPointer,
     tkArray,
     tkRecord,
+    tkUnion,
     tkSet,
     tkRoutine
   );
@@ -111,6 +112,7 @@ type
     FName: string;
     FFieldType: TPaxType;
     FOffset: Integer;
+    FBitWidth: Integer;  // 0 = not a bit field
 
   public
     constructor Create(); override;
@@ -119,6 +121,7 @@ type
     property FieldName: string read FName write FName;
     property FieldType: TPaxType read FFieldType write FFieldType;
     property Offset: Integer read FOffset write FOffset;
+    property BitWidth: Integer read FBitWidth write FBitWidth;
   end;
 
   { TPaxType }
@@ -136,10 +139,12 @@ type
     FLowBound: Int64;
     FHighBound: Int64;
     FIsDynamic: Boolean;
+    FIsFlexibleArray: Boolean;
 
     // For record types
     FFields: TObjectList<TPaxField>;
     FParentType: TPaxType;
+    FIsPacked: Boolean;
 
     // For routine types
     FParams: TObjectList<TPaxParam>;
@@ -164,6 +169,7 @@ type
     function IsPointer(): Boolean;
     function IsArray(): Boolean;
     function IsRecord(): Boolean;
+    function IsUnion(): Boolean;
     function IsSet(): Boolean;
     function IsRoutine(): Boolean;
     function IsVoid(): Boolean;
@@ -181,8 +187,10 @@ type
     property LowBound: Int64 read FLowBound write FLowBound;
     property HighBound: Int64 read FHighBound write FHighBound;
     property IsDynamic: Boolean read FIsDynamic write FIsDynamic;
+    property IsFlexibleArray: Boolean read FIsFlexibleArray write FIsFlexibleArray;
     property Fields: TObjectList<TPaxField> read FFields;
     property ParentType: TPaxType read FParentType write FParentType;
+    property IsPacked: Boolean read FIsPacked write FIsPacked;
     property Params: TObjectList<TPaxParam> read FParams;
     property ReturnType: TPaxType read FReturnType write FReturnType;
     property IsVariadic: Boolean read FIsVariadic write FIsVariadic;
@@ -231,7 +239,9 @@ type
     function CreatePointerType(const AElementType: TPaxType): TPaxType;
     function CreateArrayType(const AElementType: TPaxType; const ALow, AHigh: Int64): TPaxType;
     function CreateDynamicArrayType(const AElementType: TPaxType): TPaxType;
+    function CreateFlexibleArrayType(const AElementType: TPaxType): TPaxType;
     function CreateRecordType(const AName: string): TPaxType;
+    function CreateUnionType(const AName: string): TPaxType;
     function CreateSetType(const AElementType: TPaxType; const ALow, AHigh: Int64): TPaxType;
     function CreateRoutineType(const AReturnType: TPaxType): TPaxType;
 
@@ -294,6 +304,7 @@ begin
   FName := '';
   FFieldType := nil;
   FOffset := 0;
+  FBitWidth := 0;
 end;
 
 destructor TPaxField.Destroy();
@@ -315,8 +326,10 @@ begin
   FLowBound := 0;
   FHighBound := 0;
   FIsDynamic := False;
+  FIsFlexibleArray := False;
   FFields := TObjectList<TPaxField>.Create(True);
   FParentType := nil;
+  FIsPacked := False;
   FParams := TObjectList<TPaxParam>.Create(True);
   FReturnType := nil;
   FIsVariadic := False;
@@ -399,6 +412,11 @@ end;
 function TPaxType.IsRecord(): Boolean;
 begin
   Result := FKind = tkRecord;
+end;
+
+function TPaxType.IsUnion(): Boolean;
+begin
+  Result := FKind = tkUnion;
 end;
 
 function TPaxType.IsSet(): Boolean;
@@ -635,10 +653,44 @@ begin
   FTypes.Add(Result);
 end;
 
+function TPaxTypeRegistry.CreateFlexibleArrayType(const AElementType: TPaxType): TPaxType;
+begin
+  Result := TPaxType.Create();
+  Result.Kind := tkArray;
+  Result.ElementType := AElementType;
+  Result.LowBound := 0;
+  Result.HighBound := -1;
+  Result.IsDynamic := False;
+  Result.IsFlexibleArray := True;
+  Result.Size := 0; // Flexible arrays have zero size in struct
+  Result.Alignment := 1;
+
+  if AElementType <> nil then
+    Result.TypeName := 'array[] of ' + AElementType.TypeName
+  else
+    Result.TypeName := 'array[] of <unknown>';
+
+  FTypes.Add(Result);
+end;
+
 function TPaxTypeRegistry.CreateRecordType(const AName: string): TPaxType;
 begin
   Result := TPaxType.Create();
   Result.Kind := tkRecord;
+  Result.TypeName := AName;
+  Result.Size := 0;
+  Result.Alignment := 1;
+
+  FTypes.Add(Result);
+
+  if AName <> '' then
+    FTypeMap.Add(LowerCase(AName), Result);
+end;
+
+function TPaxTypeRegistry.CreateUnionType(const AName: string): TPaxType;
+begin
+  Result := TPaxType.Create();
+  Result.Kind := tkUnion;
   Result.TypeName := AName;
   Result.Size := 0;
   Result.Alignment := 1;
@@ -856,6 +908,7 @@ begin
     tkPointer:  Result := 'pointer';
     tkArray:    Result := 'array';
     tkRecord:   Result := 'record';
+    tkUnion:    Result := 'union';
     tkSet:      Result := 'set';
     tkRoutine:  Result := 'routine';
   else

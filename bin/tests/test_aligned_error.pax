@@ -1,0 +1,18 @@
+module exe test_aligned_error;
+
+// Test that alignment > 16 produces an error
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // 32-byte aligned - should produce error (TCC only supports up to 16)
+  TVector8 = record align(32)
+    v: array[0..7] of float32;
+  end;
+
+var
+  vec8: TVector8;
+
+begin
+  printf('This should not compile\n');
+end.

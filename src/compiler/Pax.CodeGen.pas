@@ -77,6 +77,9 @@ type
     procedure GenerateConstDecl(const AFile: TSourceFile; const ANode: PASTNode);
     procedure GenerateTypeDecl(const AFile: TSourceFile; const ANode: PASTNode);
     procedure GenerateRecordType(const AFile: TSourceFile; const ANode: PASTNode; const AName: string);
+    procedure GenerateUnionType(const AFile: TSourceFile; const ANode: PASTNode; const AName: string);
+    procedure GenerateAnonymousRecord(const AFile: TSourceFile; const ANode: PASTNode);
+    procedure GenerateAnonymousUnion(const AFile: TSourceFile; const ANode: PASTNode);
     procedure GenerateVarDecl(const AFile: TSourceFile; const ANode: PASTNode; const AIsLocal: Boolean);
     procedure GenerateRoutineDecl(const ANode: PASTNode);
     procedure GenerateExternDecl(const AFile: TSourceFile; const ANode: PASTNode);
@@ -315,6 +318,13 @@ begin
         else
           Result := 'struct';
       end;
+    tkUnion:
+      begin
+        if AType.TypeName <> '' then
+          Result := AType.TypeName
+        else
+          Result := 'union';
+      end;
     tkSet:      Result := 'uint64_t';
     tkRoutine:  Result := 'void*'; // Function pointer simplified
   else
@@ -330,12 +340,23 @@ begin
   if AType = nil then
     Exit('void ' + AName);
 
-  if (AType.Kind = tkArray) and (not AType.IsDynamic) then
+  if AType.Kind = tkArray then
   begin
-    // Static array: type name[size]
-    LElementType := TypeToC(AType.ElementType);
-    LCount := AType.HighBound - AType.LowBound + 1;
-    Result := Format('%s %s[%d]', [LElementType, AName, LCount]);
+    if AType.IsFlexibleArray then
+    begin
+      // Flexible array member (C99): type name[]
+      LElementType := TypeToC(AType.ElementType);
+      Result := Format('%s %s[]', [LElementType, AName]);
+    end
+    else if not AType.IsDynamic then
+    begin
+      // Static array: type name[size]
+      LElementType := TypeToC(AType.ElementType);
+      LCount := AType.HighBound - AType.LowBound + 1;
+      Result := Format('%s %s[%d]', [LElementType, AName, LCount]);
+    end
+    else
+      Result := TypeToC(AType) + ' ' + AName;
   end
   else
     Result := TypeToC(AType) + ' ' + AName;
@@ -635,6 +656,8 @@ begin
   case LTypeNode^.Kind of
     nkRecordType:
       GenerateRecordType(AFile, LTypeNode, ANode^.NodeName);
+    nkUnionType:
+      GenerateUnionType(AFile, LTypeNode, ANode^.NodeName);
     nkArrayType, nkPointerType, nkSetType:
       begin
         LSym := nil;
@@ -653,9 +676,22 @@ var
   LChild: PASTNode;
   LTypeNode: PASTNode;
   LFieldType: TPaxType;
-  LSym: TSymbol;
+  LIsPacked: Boolean;
+  LAlignment: Integer;
 begin
-  EmitLnFmt(AFile, 'typedef struct %s {', [AName]);
+  // Check if this is a packed record
+  LIsPacked := ANode^.IsPacked;
+  LAlignment := ANode^.Alignment;
+
+  // Emit pragma pack for packed records
+  if LIsPacked then
+    EmitLn(AFile, '#pragma pack(push, 1)');
+
+  // Emit struct with alignment attribute if specified
+  if LAlignment > 0 then
+    EmitLnFmt(AFile, 'typedef struct __attribute__((aligned(%d))) %s {', [LAlignment, AName])
+  else
+    EmitLnFmt(AFile, 'typedef struct %s {', [AName]);
   IncIndent();
 
   for LI := 0 to GetASTChildCount(ANode) - 1 do
@@ -664,27 +700,183 @@ begin
 
     if LChild^.Kind = nkFieldDecl then
     begin
-      LSym := nil;
       LFieldType := nil;
 
-      // Try to get field type from symbol table or resolve directly
+      // Resolve field type from AST node
       if GetASTChildCount(LChild) > 0 then
       begin
         LTypeNode := GetASTChild(LChild, 0);
-        if (FTypes <> nil) and (LTypeNode^.Kind = nkTypeRef) then
-          LFieldType := FTypes.GetType(LTypeNode^.NodeName);
+        LFieldType := ResolveTypeNode(LTypeNode);
       end;
 
       if LFieldType <> nil then
-        EmitLnFmt(AFile, '%s;', [TypeToCDecl(LFieldType, LChild^.NodeName)])
+      begin
+        // Check for bit field
+        if LChild^.BitWidth > 0 then
+          EmitLnFmt(AFile, '%s : %d;', [TypeToCDecl(LFieldType, LChild^.NodeName), LChild^.BitWidth])
+        else
+          EmitLnFmt(AFile, '%s;', [TypeToCDecl(LFieldType, LChild^.NodeName)]);
+      end
       else
         EmitLnFmt(AFile, 'void* %s; // unknown type', [LChild^.NodeName]);
+    end
+    else if LChild^.Kind = nkUnionType then
+    begin
+      // Anonymous union inside record
+      GenerateAnonymousUnion(AFile, LChild);
+    end;
+  end;
+
+  DecIndent();
+  EmitLnFmt(AFile, '} %s;', [AName]);
+
+  // Close pragma pack for packed records
+  if LIsPacked then
+    EmitLn(AFile, '#pragma pack(pop)');
+
+  EmitLn(AFile);
+end;
+
+procedure TPaxCodeGen.GenerateUnionType(const AFile: TSourceFile; const ANode: PASTNode; const AName: string);
+var
+  LI: Integer;
+  LChild: PASTNode;
+  LTypeNode: PASTNode;
+  LFieldType: TPaxType;
+begin
+  EmitLnFmt(AFile, 'typedef union %s {', [AName]);
+  IncIndent();
+
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if LChild^.Kind = nkFieldDecl then
+    begin
+      LFieldType := nil;
+
+      // Resolve field type from AST node
+      if GetASTChildCount(LChild) > 0 then
+      begin
+        LTypeNode := GetASTChild(LChild, 0);
+        LFieldType := ResolveTypeNode(LTypeNode);
+      end;
+
+      if LFieldType <> nil then
+      begin
+        // Check for bit field
+        if LChild^.BitWidth > 0 then
+          EmitLnFmt(AFile, '%s : %d;', [TypeToCDecl(LFieldType, LChild^.NodeName), LChild^.BitWidth])
+        else
+          EmitLnFmt(AFile, '%s;', [TypeToCDecl(LFieldType, LChild^.NodeName)]);
+      end
+      else
+        EmitLnFmt(AFile, 'void* %s; // unknown type', [LChild^.NodeName]);
+    end
+    else if LChild^.Kind = nkRecordType then
+    begin
+      // Anonymous record inside union
+      GenerateAnonymousRecord(AFile, LChild);
     end;
   end;
 
   DecIndent();
   EmitLnFmt(AFile, '} %s;', [AName]);
   EmitLn(AFile);
+end;
+
+procedure TPaxCodeGen.GenerateAnonymousRecord(const AFile: TSourceFile; const ANode: PASTNode);
+var
+  LI: Integer;
+  LChild: PASTNode;
+  LTypeNode: PASTNode;
+  LFieldType: TPaxType;
+begin
+  // Anonymous struct inside union
+  EmitLn(AFile, 'struct {');
+  IncIndent();
+
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if LChild^.Kind = nkFieldDecl then
+    begin
+      LFieldType := nil;
+
+      if GetASTChildCount(LChild) > 0 then
+      begin
+        LTypeNode := GetASTChild(LChild, 0);
+        LFieldType := ResolveTypeNode(LTypeNode);
+      end;
+
+      if LFieldType <> nil then
+      begin
+        // Check for bit field
+        if LChild^.BitWidth > 0 then
+          EmitLnFmt(AFile, '%s : %d;', [TypeToCDecl(LFieldType, LChild^.NodeName), LChild^.BitWidth])
+        else
+          EmitLnFmt(AFile, '%s;', [TypeToCDecl(LFieldType, LChild^.NodeName)]);
+      end
+      else
+        EmitLnFmt(AFile, 'void* %s; // unknown type', [LChild^.NodeName]);
+    end
+    else if LChild^.Kind = nkUnionType then
+    begin
+      // Nested anonymous union
+      GenerateAnonymousUnion(AFile, LChild);
+    end;
+  end;
+
+  DecIndent();
+  EmitLn(AFile, '};');
+end;
+
+procedure TPaxCodeGen.GenerateAnonymousUnion(const AFile: TSourceFile; const ANode: PASTNode);
+var
+  LI: Integer;
+  LChild: PASTNode;
+  LTypeNode: PASTNode;
+  LFieldType: TPaxType;
+begin
+  // Anonymous union inside record
+  EmitLn(AFile, 'union {');
+  IncIndent();
+
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if LChild^.Kind = nkFieldDecl then
+    begin
+      LFieldType := nil;
+
+      if GetASTChildCount(LChild) > 0 then
+      begin
+        LTypeNode := GetASTChild(LChild, 0);
+        LFieldType := ResolveTypeNode(LTypeNode);
+      end;
+
+      if LFieldType <> nil then
+      begin
+        // Check for bit field
+        if LChild^.BitWidth > 0 then
+          EmitLnFmt(AFile, '%s : %d;', [TypeToCDecl(LFieldType, LChild^.NodeName), LChild^.BitWidth])
+        else
+          EmitLnFmt(AFile, '%s;', [TypeToCDecl(LFieldType, LChild^.NodeName)]);
+      end
+      else
+        EmitLnFmt(AFile, 'void* %s; // unknown type', [LChild^.NodeName]);
+    end
+    else if LChild^.Kind = nkRecordType then
+    begin
+      // Nested anonymous record
+      GenerateAnonymousRecord(AFile, LChild);
+    end;
+  end;
+
+  DecIndent();
+  EmitLn(AFile, '};');
 end;
 
 procedure TPaxCodeGen.GenerateVarDecl(const AFile: TSourceFile; const ANode: PASTNode; const AIsLocal: Boolean);
@@ -1384,6 +1576,7 @@ begin
     nkFieldAccess:    Result := GenerateFieldAccess(ANode);
     nkArrayAccess:    Result := GenerateArrayAccess(ANode);
     nkDeref:          Result := GenerateDeref(ANode);
+    nkAddressOf:      Result := '(&' + GenerateExpression(GetASTChild(ANode, 0)) + ')';
     nkCall:           Result := GenerateCall(ANode);
     nkTypeCast:       Result := GenerateTypeCast(ANode);
     nkSizeOf:         Result := GenerateSizeOf(ANode);
@@ -1567,6 +1760,8 @@ end;
 function TPaxCodeGen.GenerateArrayAccess(const ANode: PASTNode): string;
 var
   LBase, LIndex: string;
+  LBaseType: TPaxType;
+  LElementType: string;
 begin
   if GetASTChildCount(ANode) < 2 then
     Exit('');
@@ -1574,7 +1769,19 @@ begin
   LBase := GenerateExpression(GetASTChild(ANode, 0));
   LIndex := GenerateExpression(GetASTChild(ANode, 1));
 
-  Result := Format('%s[%s]', [LBase, LIndex]);
+  // Check if base is a dynamic array
+  LBaseType := GetExpressionType(GetASTChild(ANode, 0));
+  if (LBaseType <> nil) and (LBaseType.Kind = tkArray) and LBaseType.IsDynamic then
+  begin
+    // Dynamic array access: ((ElementType*)arr->data)[index]
+    if LBaseType.ElementType <> nil then
+      LElementType := TypeToC(LBaseType.ElementType)
+    else
+      LElementType := 'void';
+    Result := Format('((%s*)%s->data)[%s]', [LElementType, LBase, LIndex]);
+  end
+  else
+    Result := Format('%s[%s]', [LBase, LIndex]);
 end;
 
 function TPaxCodeGen.GenerateDeref(const ANode: PASTNode): string;
@@ -2112,7 +2319,7 @@ begin
         if GetASTChildCount(ANode) > 0 then
         begin
           LBaseType := GetExpressionType(GetASTChild(ANode, 0));
-          if (LBaseType <> nil) and (LBaseType.Kind = tkRecord) then
+          if (LBaseType <> nil) and (LBaseType.IsRecord() or LBaseType.IsUnion()) then
           begin
             LField := LBaseType.GetField(ANode^.NodeName);
             if LField <> nil then
@@ -2170,6 +2377,9 @@ end;
 function TPaxCodeGen.ResolveTypeNode(const ANode: PASTNode): TPaxType;
 var
   LElementType: TPaxType;
+  LChildCount: Integer;
+  LLowBound: Int64;
+  LHighBound: Int64;
 begin
   Result := nil;
 
@@ -2201,10 +2411,23 @@ begin
       begin
         if (FTypes <> nil) and (GetASTChildCount(ANode) > 0) then
         begin
+          LChildCount := GetASTChildCount(ANode);
           // Last child is element type
-          LElementType := ResolveTypeNode(GetASTChild(ANode, GetASTChildCount(ANode) - 1));
+          LElementType := ResolveTypeNode(GetASTChild(ANode, LChildCount - 1));
           if LElementType <> nil then
-            Result := FTypes.CreateDynamicArrayType(LElementType);
+          begin
+            // Check for static array bounds (3 children: low, high, elementtype)
+            if (LChildCount = 3) and
+               (GetASTChild(ANode, 0)^.Kind = nkIntLiteral) and
+               (GetASTChild(ANode, 1)^.Kind = nkIntLiteral) then
+            begin
+              LLowBound := GetASTChild(ANode, 0)^.IntVal;
+              LHighBound := GetASTChild(ANode, 1)^.IntVal;
+              Result := FTypes.CreateArrayType(LElementType, LLowBound, LHighBound);
+            end
+            else
+              Result := FTypes.CreateDynamicArrayType(LElementType);
+          end;
         end;
       end;
   end;

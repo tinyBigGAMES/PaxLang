@@ -1,0 +1,82 @@
+module exe test_anonymous;
+
+// Test anonymous unions and records for C99 interop
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // Win32-style LARGE_INTEGER with anonymous struct inside union
+  TLargeInteger = union
+    record
+      LowPart: uint32;
+      HighPart: int32;
+    end;
+    QuadPart: int64;
+  end;
+
+  // Tagged union with anonymous union inside record
+  TVariant = record
+    kind: int32;
+    union
+      asInt: int32;
+      asFloat: float32;
+      asPtr: pointer;
+    end;
+  end;
+
+  // Nested: anonymous union containing anonymous struct
+  TComplex = union
+    record
+      real: float32;
+      imag: float32;
+    end;
+    parts: array[0..1] of float32;
+  end;
+
+var
+  largeInt: TLargeInteger;
+  variant: TVariant;
+  complex: TComplex;
+
+begin
+  printf('=== Anonymous Unions/Records Test ===\n');
+  printf('\n');
+  
+  // Print sizes
+  printf('sizeof(TLargeInteger) = %lld (expected: 8)\n', sizeof(TLargeInteger));
+  printf('sizeof(TVariant)      = %lld (expected: 16 = 4 kind + 4 pad + 8 union)\n', sizeof(TVariant));
+  printf('sizeof(TComplex)      = %lld (expected: 8)\n', sizeof(TComplex));
+  printf('\n');
+  
+  // Test TLargeInteger - write QuadPart, read LowPart/HighPart
+  largeInt.QuadPart := $123456789ABCDEF0;
+  printf('TLargeInteger.QuadPart = 0x%llX\n', largeInt.QuadPart);
+  printf('TLargeInteger.LowPart  = 0x%X (expected: 0x9ABCDEF0)\n', largeInt.LowPart);
+  printf('TLargeInteger.HighPart = 0x%X (expected: 0x12345678)\n', largeInt.HighPart);
+  printf('\n');
+  
+  // Test TLargeInteger - write parts, read QuadPart
+  largeInt.LowPart := $DEADBEEF;
+  largeInt.HighPart := $CAFEBABE;
+  printf('After setting LowPart=0xDEADBEEF, HighPart=0xCAFEBABE:\n');
+  printf('TLargeInteger.QuadPart = 0x%llX (expected: 0xCAFEBABEDEADBEEF)\n', largeInt.QuadPart);
+  printf('\n');
+  
+  // Test TVariant - tagged union pattern
+  variant.kind := 1;
+  variant.asInt := 42;
+  printf('TVariant (int): kind=%d, asInt=%d\n', variant.kind, variant.asInt);
+  
+  variant.kind := 2;
+  variant.asFloat := 3.14;
+  printf('TVariant (float): kind=%d, asFloat=%.2f\n', variant.kind, variant.asFloat);
+  printf('\n');
+  
+  // Test TComplex
+  complex.real := 1.0;
+  complex.imag := 2.0;
+  printf('TComplex.real = %.1f, TComplex.imag = %.1f\n', complex.real, complex.imag);
+  printf('TComplex.parts[0] = %.1f, TComplex.parts[1] = %.1f\n', complex.parts[0], complex.parts[1]);
+  
+  printf('\n=== Test Complete ===\n');
+end.

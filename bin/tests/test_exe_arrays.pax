@@ -1,0 +1,53 @@
+// Test: Dynamic Arrays with setlength and len
+module exe test_exe_arrays;
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  TIntArray = array of int32;
+  TInt64Array = array of int64;
+
+var
+  dyn: TIntArray;
+  data: TInt64Array;
+  i: int32;
+  sum: int32;
+
+begin
+  printf('=== Dynamic Arrays Test ===\n');
+  
+  // Allocate dynamic array
+  setlength(dyn, 5);
+  printf('After setlength(dyn, 5): len = %lld\n', len(dyn));
+  
+  // Fill array
+  dyn[0] := 100;
+  dyn[1] := 200;
+  dyn[2] := 300;
+  dyn[3] := 400;
+  dyn[4] := 500;
+  printf('dyn[0]=%d, dyn[4]=%d\n', dyn[0], dyn[4]);
+  
+  // Sum array
+  sum := 0;
+  for i := 0 to 4 do
+    sum := sum + dyn[i];
+  end;
+  printf('Sum = %d\n', sum);
+  
+  // Resize
+  setlength(dyn, 10);
+  printf('After setlength(dyn, 10): len = %lld\n', len(dyn));
+  dyn[5] := 600;
+  printf('dyn[5] = %d\n', dyn[5]);
+  
+  // Int64 dynamic array
+  setlength(data, 3);
+  data[0] := 1000000000;
+  data[1] := 2000000000;
+  data[2] := 3000000000;
+  printf('len(data) = %lld\n', len(data));
+  printf('data[2] = %lld\n', data[2]);
+  
+  printf('\nDynamic arrays test passed!\n');
+end.

@@ -57,6 +57,10 @@ type
     tkArray,
     tkPointer,
     tkSet,
+    tkPacked,
+    tkUnion,
+    tkAlign,
+    tkAddress,
     tkTo,
     tkOf,
 
@@ -293,6 +297,10 @@ begin
     tkArray:       Result := '''array''';
     tkPointer:     Result := '''pointer''';
     tkSet:         Result := '''set''';
+    tkPacked:      Result := '''packed''';
+    tkUnion:       Result := '''union''';
+    tkAlign:       Result := '''align''';
+    tkAddress:     Result := '''address''';
     tkTo:          Result := '''to''';
     tkOf:          Result := '''of''';
     tkBegin:       Result := '''begin''';
@@ -386,7 +394,7 @@ begin
   Result := Kind in [
     tkModule, tkExe, tkDll, tkLib, tkImport, tkPublic, tkExternal,
     tkConst, tkType, tkVar, tkRoutine,
-    tkRecord, tkArray, tkPointer, tkSet, tkTo, tkOf,
+    tkRecord, tkArray, tkPointer, tkSet, tkPacked, tkUnion, tkAlign, tkAddress, tkTo, tkOf,
     tkBegin, tkEnd, tkTest,
     tkIf, tkThen, tkElse, tkWhile, tkDo, tkFor, tkDownto,
     tkRepeat, tkUntil, tkCase, tkReturn,
@@ -463,6 +471,10 @@ begin
   FKeywords.Add('array', tkArray);
   FKeywords.Add('pointer', tkPointer);
   FKeywords.Add('set', tkSet);
+  FKeywords.Add('packed', tkPacked);
+  FKeywords.Add('union', tkUnion);
+  FKeywords.Add('align', tkAlign);
+  FKeywords.Add('address', tkAddress);
   FKeywords.Add('to', tkTo);
   FKeywords.Add('of', tkOf);
 

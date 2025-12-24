@@ -1,0 +1,65 @@
+// Test: Dynamic Arrays in Records
+module exe test_exe_record_arrays;
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  TBuffer = record
+    size: uint32;
+    data: array of uint8;
+  end;
+
+  TPacket = record
+    id: uint32;
+    flags: uint16;
+    length: uint16;
+    payload: array of uint8;
+  end;
+
+  TIntBuffer = record
+    count: uint32;
+    values: array of int32;
+  end;
+
+var
+  buf: TBuffer;
+  pkt: TPacket;
+  ibuf: TIntBuffer;
+  i: int32;
+
+begin
+  printf('=== Dynamic Arrays in Records ===\n');
+  
+  // TBuffer
+  buf.size := 10;
+  setlength(buf.data, 10);
+  printf('buf.size = %d, len(buf.data) = %lld\n', buf.size, len(buf.data));
+  
+  for i := 0 to 9 do
+    buf.data[i] := uint8(i * 10);
+  end;
+  printf('buf.data[5] = %d\n', buf.data[5]);
+  
+  // TPacket
+  pkt.id := 12345;
+  pkt.flags := $00FF;
+  pkt.length := 5;
+  setlength(pkt.payload, 5);
+  pkt.payload[0] := 65;
+  pkt.payload[1] := 66;
+  pkt.payload[2] := 67;
+  pkt.payload[3] := 68;
+  pkt.payload[4] := 69;
+  printf('pkt.id = %d, len(pkt.payload) = %lld\n', pkt.id, len(pkt.payload));
+  
+  // TIntBuffer
+  ibuf.count := 3;
+  setlength(ibuf.values, 3);
+  ibuf.values[0] := 1000;
+  ibuf.values[1] := 2000;
+  ibuf.values[2] := 3000;
+  printf('ibuf.count = %d, len(ibuf.values) = %lld\n', ibuf.count, len(ibuf.values));
+  printf('ibuf.values[2] = %d\n', ibuf.values[2]);
+  
+  printf('\nDynamic arrays in records test passed!\n');
+end.

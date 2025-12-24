@@ -1,0 +1,93 @@
+module exe test_aligned;
+
+// Test aligned record types for C99 interop
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // 16-byte aligned for SIMD operations (maximum supported by TCC)
+  TVector4 = record align(16)
+    x: float32;
+    y: float32;
+    z: float32;
+    w: float32;
+  end;
+
+  // 8-byte aligned
+  TVector2D = record align(8)
+    x: float64;
+    y: float64;
+  end;
+
+  // 4-byte aligned
+  TIntPair = record align(4)
+    a: int32;
+    b: int32;
+  end;
+
+  // Normal record for comparison
+  TNormalVec = record
+    x: float32;
+    y: float32;
+    z: float32;
+    w: float32;
+  end;
+
+// Global variables
+var
+  gVec4: TVector4;
+  gVec2D: TVector2D;
+  gIntPair: TIntPair;
+  gNormalVec: TNormalVec;
+
+routine TestLocalAlignment(): int32;
+var
+  vec4: TVector4;
+  vec2D: TVector2D;
+  intPair: TIntPair;
+  normalVec: TNormalVec;
+begin
+  printf('\n--- Local Variables (stack) ---\n');
+  printf('Address of vec4 (align 16):      %p\n', address of vec4);
+  printf('Address of vec2D (align 8):      %p\n', address of vec2D);
+  printf('Address of intPair (align 4):    %p\n', address of intPair);
+  printf('Address of normalVec (no align): %p\n', address of normalVec);
+  
+  // Initialize and use aligned vector
+  vec4.x := 1.0;
+  vec4.y := 2.0;
+  vec4.z := 3.0;
+  vec4.w := 4.0;
+  printf('TVector4 = (%.1f, %.1f, %.1f, %.1f)\n', vec4.x, vec4.y, vec4.z, vec4.w);
+  
+  return 0;
+end;
+
+begin
+  printf('=== Aligned Records Test ===\n');
+  printf('\n');
+  
+  // Print sizes
+  printf('sizeof(TVector4)   = %lld (expected: 16)\n', sizeof(TVector4));
+  printf('sizeof(TVector2D)  = %lld (expected: 16)\n', sizeof(TVector2D));
+  printf('sizeof(TIntPair)   = %lld (expected: 8)\n', sizeof(TIntPair));
+  printf('sizeof(TNormalVec) = %lld (expected: 16)\n', sizeof(TNormalVec));
+  
+  printf('\n--- Global Variables (BSS) ---\n');
+  printf('Address of gVec4 (align 16):      %p\n', address of gVec4);
+  printf('Address of gVec2D (align 8):      %p\n', address of gVec2D);
+  printf('Address of gIntPair (align 4):    %p\n', address of gIntPair);
+  printf('Address of gNormalVec (no align): %p\n', address of gNormalVec);
+  
+  // Initialize and use aligned global vector
+  gVec4.x := 1.0;
+  gVec4.y := 2.0;
+  gVec4.z := 3.0;
+  gVec4.w := 4.0;
+  printf('gTVector4 = (%.1f, %.1f, %.1f, %.1f)\n', gVec4.x, gVec4.y, gVec4.z, gVec4.w);
+  
+  // Test local variables
+  TestLocalAlignment();
+  
+  printf('\n=== Test Complete ===\n');
+end.
