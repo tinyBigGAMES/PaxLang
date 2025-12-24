@@ -61,6 +61,7 @@ type
     FSubsystem: TLibTCCSubsystem;
     FOutputCallback: TOutputCallback;
     FVerbose: Boolean;
+    FUnitTestMode: Boolean;
 
     function SafeLoadFile(const AFilename: string): string;
     function SafeSaveFile(const AFilename: string; const AContent: string): Boolean;
@@ -176,6 +177,7 @@ begin
   FSubsystem := ssConsole;
   FOutputCallback := nil;
   FVerbose := False;
+  FUnitTestMode := False;
 end;
 
 destructor TPaxCompiler.Destroy();
@@ -264,6 +266,7 @@ begin
 
   FCodeGen.Clear();
   FModuleName := '';
+  FUnitTestMode := False;
 end;
 
 function TPaxCompiler.RunLexer(const ASource: string; const AFilename: string): Boolean;
@@ -322,6 +325,13 @@ begin
           FSubsystem := ssGUI
         else
           FSubsystem := ssConsole;
+      end
+      else if LName = '#unittestmode' then
+      begin
+        if LowerCase(LValue) = 'on' then
+          FUnitTestMode := True
+        else
+          FUnitTestMode := False;
       end;
     end;
   end;
@@ -1053,6 +1063,13 @@ begin
     FErrors.Add(esWarning, 'W920', 'Failed to set subsystem');
   end;
 
+  // Define PAX_UNITTESTING if unit test mode is enabled
+  if FUnitTestMode then
+  begin
+    if not FTCC.DefineSymbol('PAX_UNITTESTING', '1') then
+      FErrors.Add(esWarning, 'W921', 'Failed to define PAX_UNITTESTING symbol');
+  end;
+
   // Compile the runtime library
   LRuntimePath := TPath.Combine(GetTCCBasePath(), 'lib\pax_runtime.c');
   if not FTCC.AddFile(LRuntimePath) then
@@ -1061,6 +1078,16 @@ begin
     Exit;
   end;
 
+  // Compile the unit test runtime if unit test mode is enabled
+  if FUnitTestMode then
+  begin
+    LRuntimePath := TPath.Combine(GetTCCBasePath(), 'lib\pax_unittest.c');
+    if not FTCC.AddFile(LRuntimePath) then
+    begin
+      FErrors.Add(esFatal, 'E922', 'Failed to compile Pax unit test library');
+      Exit;
+    end;
+  end;
 
   // Compile imported modules
   if not CompileImportedModules() then

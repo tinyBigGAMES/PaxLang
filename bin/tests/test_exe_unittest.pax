@@ -1,0 +1,55 @@
+module exe test_exe_unittest;
+
+#unittestmode on
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+// Simple function to test
+routine Add(const A: int32; const B: int32): int32;
+begin
+  return A + B;
+end;
+
+routine Multiply(const A: int32; const B: int32): int32;
+begin
+  return A * B;
+end;
+
+routine IsPositive(const A: int32): boolean;
+begin
+  return A > 0;
+end;
+
+begin
+  // Normal program entry - skipped when running tests
+  printf('Hello from test_exe_unittest!\n');
+end.
+
+test 'Addition works correctly'
+begin
+  TestAssertEqualInt(5, Add(2, 3));
+  TestAssertEqualInt(0, Add(-1, 1));
+  TestAssertEqualInt(0, Add(0, 0));
+end;
+
+test 'Multiplication works correctly'
+begin
+  TestAssertEqualInt(12, Multiply(3, 4));
+  TestAssertEqualInt(-6, Multiply(-2, 3));
+  TestAssertEqualInt(0, Multiply(0, 100));
+end;
+
+test 'Boolean assertions'
+begin
+  TestAssertTrue(IsPositive(5));
+  TestAssertFalse(IsPositive(-5));
+  TestAssertEqualBool(true, IsPositive(1));
+end;
+
+test 'Pointer assertions'
+var
+  p: pointer;
+begin
+  p := nil;
+  TestAssertNil(p);
+end;

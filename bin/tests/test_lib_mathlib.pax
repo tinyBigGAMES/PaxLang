@@ -1,0 +1,26 @@
+module lib test_lib_mathlib;
+
+public routine Add(const A: int32; const B: int32): int32;
+begin
+  return A + B;
+end;
+
+public routine Multiply(const A: int32; const B: int32): int32;
+begin
+  return A * B;
+end;
+
+end.
+
+test 'Add returns correct sum'
+begin
+  TestAssertEqualInt(5, Add(2, 3));
+  TestAssertEqualInt(0, Add(-5, 5));
+  TestAssertEqualInt(-10, Add(-5, -5));
+end;
+
+test 'Multiply returns correct product'
+begin
+  TestAssertEqualInt(6, Multiply(2, 3));
+  TestAssertEqualInt(0, Multiply(0, 100));
+end;

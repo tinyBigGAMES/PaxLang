@@ -35,6 +35,7 @@ type
     FTypes: TPaxTypeRegistry;
     FSymbols: TSymbolTable;
     FCurrentRoutine: TSymbol;
+    FModuleKind: string;
 
     // Stats
     FSymbolsResolved: Integer;
@@ -102,6 +103,9 @@ type
     // Utility
     function GetTypeName(const AType: TPaxType): string;
     function IsLValue(const ANode: PASTNode): Boolean;
+
+    // Built-in registration
+    procedure RegisterTestBuiltins();
 
   public
     constructor Create(); override;
@@ -189,6 +193,9 @@ begin
 
   if ARoot = nil then
     Exit;
+
+  // Register test assertion built-ins
+  RegisterTestBuiltins();
 
   if ARoot^.Kind = nkModule then
     CheckModule(ARoot);
@@ -558,6 +565,14 @@ begin
   LModuleSym := FSymbols.Define(ANode^.NodeName, skModule);
   LModuleSym.DeclNode := ANode;
 
+  // Extract module kind (strip quotes, lowercase)
+  FModuleKind := ANode^.StrVal;
+  if (Length(FModuleKind) >= 2) and (FModuleKind[1] = '''') then
+    FModuleKind := Copy(FModuleKind, 2, Length(FModuleKind) - 2);
+  FModuleKind := LowerCase(FModuleKind);
+  if FModuleKind = '' then
+    FModuleKind := 'exe';  // Default is exe
+
   // Process children
   for LI := 0 to GetASTChildCount(ANode) - 1 do
   begin
@@ -607,9 +622,17 @@ begin
 end;
 
 procedure TPaxChecker.CheckDirective(const ANode: PASTNode);
+var
+  LName: string;
 begin
-  // Directives are primarily for code generation
-  // Just validate that they're recognized
+  LName := LowerCase(ANode^.NodeName);
+
+  // Validate #unittestmode is only valid for EXE modules
+  if LName = '#unittestmode' then
+  begin
+    if FModuleKind <> 'exe' then
+      Error(ANode, 'E081', '#unittestmode directive is only valid for EXE modules');
+  end;
 end;
 
 procedure TPaxChecker.CheckImport(const ANode: PASTNode);
@@ -1644,6 +1667,90 @@ begin
     nkFieldAccess, nkArrayAccess, nkDeref:
       Result := True;
   end;
+end;
+
+procedure TPaxChecker.RegisterTestBuiltins();
+var
+  LSym: TSymbol;
+  LRoutineType: TPaxType;
+begin
+  // TestAssert(condition: boolean)
+  LSym := FSymbols.Define('TestAssert', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('condition', FTypes.BooleanType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertTrue(condition: boolean)
+  LSym := FSymbols.Define('TestAssertTrue', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('condition', FTypes.BooleanType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertFalse(condition: boolean)
+  LSym := FSymbols.Define('TestAssertFalse', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('condition', FTypes.BooleanType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertEqualInt(expected, actual: int64)
+  LSym := FSymbols.Define('TestAssertEqualInt', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('expected', FTypes.Int64Type, pmConst);
+  LRoutineType.AddParam('actual', FTypes.Int64Type, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertEqualUInt(expected, actual: uint64)
+  LSym := FSymbols.Define('TestAssertEqualUInt', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('expected', FTypes.UInt64Type, pmConst);
+  LRoutineType.AddParam('actual', FTypes.UInt64Type, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertEqualFloat(expected, actual: float64)
+  LSym := FSymbols.Define('TestAssertEqualFloat', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('expected', FTypes.Float64Type, pmConst);
+  LRoutineType.AddParam('actual', FTypes.Float64Type, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertEqualStr(expected, actual: pchar)
+  LSym := FSymbols.Define('TestAssertEqualStr', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('expected', FTypes.PCharType, pmConst);
+  LRoutineType.AddParam('actual', FTypes.PCharType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertEqualBool(expected, actual: boolean)
+  LSym := FSymbols.Define('TestAssertEqualBool', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('expected', FTypes.BooleanType, pmConst);
+  LRoutineType.AddParam('actual', FTypes.BooleanType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertEqualPtr(expected, actual: pointer)
+  LSym := FSymbols.Define('TestAssertEqualPtr', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('expected', FTypes.PointerType, pmConst);
+  LRoutineType.AddParam('actual', FTypes.PointerType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertNil(ptr: pointer)
+  LSym := FSymbols.Define('TestAssertNil', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('ptr', FTypes.PointerType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestAssertNotNil(ptr: pointer)
+  LSym := FSymbols.Define('TestAssertNotNil', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('ptr', FTypes.PointerType, pmConst);
+  LSym.SymbolType := LRoutineType;
+
+  // TestFail(message: pchar)
+  LSym := FSymbols.Define('TestFail', skRoutine);
+  LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
+  LRoutineType.AddParam('message', FTypes.PCharType, pmConst);
+  LSym.SymbolType := LRoutineType;
 end;
 
 end.

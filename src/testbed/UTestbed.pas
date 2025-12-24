@@ -71,7 +71,12 @@ begin
     //LCompiler.MainSourceFile := 'tests\test_aligned_error.pax';
     //LCompiler.MainSourceFile := 'tests\test_exe_bitfields.pax';
     //LCompiler.MainSourceFile := 'tests\test_exe_record_arrays.pax';
-    LCompiler.MainSourceFile := 'tests\test_exe_arrays.pax';
+    //LCompiler.MainSourceFile := 'tests\test_exe_arrays.pax';
+
+    //LCompiler.MainSourceFile := 'tests\test_exe_unittest.pax';
+    //LCompiler.MainSourceFile := 'tests\test_lib_mathlib.pax';
+    LCompiler.MainSourceFile := 'tests\test_lib_mathlib_exe.pax';
+
     LCompiler.Build();
   finally
     ShowErrors(LCompiler.Errors);

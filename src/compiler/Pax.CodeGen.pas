@@ -85,6 +85,7 @@ type
     procedure GenerateExternDecl(const AFile: TSourceFile; const ANode: PASTNode);
     procedure GenerateRoutinePrototype(const AFile: TSourceFile; const ANode: PASTNode);
     procedure GenerateParamList(const AFile: TSourceFile; const ANode: PASTNode);
+    procedure GenerateTestBlock(const ANode: PASTNode; const AIndex: Integer);
 
     // Statement generation
     procedure GenerateBlock(const ANode: PASTNode);
@@ -409,6 +410,10 @@ var
   LHasMain: Boolean;
   LModuleKind: string;
   LImportName: string;
+  LTestBlocks: TList<PASTNode>;
+  LTestIndex: Integer;
+  LTestName: string;
+  LTestFuncName: string;
 begin
   FModuleName := ANode^.NodeName;
   LModuleKind := LowerCase(ANode^.StrVal);
@@ -518,28 +523,90 @@ begin
     end;
   end;
 
-  // Generate main function for exe modules
-  if LHasMain then
-  begin
-    EmitLn(sfSource);
-    EmitLn(sfSource, 'int main(int argc, char** argv) {');
-    IncIndent();
-
-    // Initialize runtime (including GC)
-    EmitLn(sfSource, 'pax_init(argc, argv);');
-    EmitLn(sfSource);
-
-    // Find and generate initialization block
+  // Collect and generate test blocks
+  LTestBlocks := TList<PASTNode>.Create();
+  try
     for LI := 0 to GetASTChildCount(ANode) - 1 do
     begin
       LChild := GetASTChild(ANode, LI);
-      if (LChild^.Kind = nkBlock) and (LChild^.NodeName = 'block') then
-        GenerateBlock(LChild);
+      if LChild^.Kind = nkTestBlock then
+        LTestBlocks.Add(LChild);
     end;
 
-    EmitLn(sfSource, 'return 0;');
+    // Generate test functions
+    for LTestIndex := 0 to LTestBlocks.Count - 1 do
+      GenerateTestBlock(LTestBlocks[LTestIndex], LTestIndex);
+
+    // Generate module's test registration function
+    EmitLn(sfSource);
+    EmitLn(sfSource, '#ifdef PAX_UNITTESTING');
+    EmitLnFmt(sfSource, 'void %s_register_tests(void) {', [FModuleName]);
+    IncIndent();
+    for LTestIndex := 0 to LTestBlocks.Count - 1 do
+    begin
+      LTestName := LTestBlocks[LTestIndex]^.NodeName;
+      if (Length(LTestName) >= 2) and (LTestName[1] = '''') then
+        LTestName := Copy(LTestName, 2, Length(LTestName) - 2);
+      LTestFuncName := Format('pax_test_%d', [LTestIndex]);
+      EmitLnFmt(sfSource, 'pax_test_register("%s", %s, "%s", %d);', 
+        [EscapeString(LTestName), LTestFuncName, FSourceFile, LTestBlocks[LTestIndex]^.Token.Range.StartLine]);
+    end;
     DecIndent();
     EmitLn(sfSource, '}');
+    EmitLn(sfSource, '#endif // PAX_UNITTESTING');
+
+    // Generate main function for exe modules
+    if LHasMain then
+    begin
+      EmitLn(sfSource);
+      EmitLn(sfSource, 'int main(int argc, char** argv) {');
+      IncIndent();
+
+      // Initialize runtime (including GC)
+      EmitLn(sfSource, 'pax_init(argc, argv);');
+      EmitLn(sfSource);
+
+      // If tests exist (local or imported), add conditional test execution block
+      EmitLn(sfSource, '#ifdef PAX_UNITTESTING');
+
+      // Call imported modules' registration functions
+      for LI := 0 to GetASTChildCount(ANode) - 1 do
+      begin
+        LChild := GetASTChild(ANode, LI);
+        if (LChild^.Kind = nkBlock) and (LChild^.NodeName = 'imports') then
+        begin
+          for LJ := 0 to GetASTChildCount(LChild) - 1 do
+          begin
+            LImportNode := GetASTChild(LChild, LJ);
+            if LImportNode^.Kind = nkImport then
+              EmitLnFmt(sfSource, '%s_register_tests();', [LImportNode^.NodeName]);
+          end;
+        end
+        else if LChild^.Kind = nkImport then
+          EmitLnFmt(sfSource, '%s_register_tests();', [LChild^.NodeName]);
+      end;
+
+      // Register local tests
+      EmitLnFmt(sfSource, '%s_register_tests();', [FModuleName]);
+
+      EmitLn(sfSource, 'return pax_test_run_all();');
+      EmitLn(sfSource, '#endif');
+      EmitLn(sfSource);
+
+      // Find and generate initialization block
+      for LI := 0 to GetASTChildCount(ANode) - 1 do
+      begin
+        LChild := GetASTChild(ANode, LI);
+        if (LChild^.Kind = nkBlock) and (LChild^.NodeName = 'block') then
+          GenerateBlock(LChild);
+      end;
+
+      EmitLn(sfSource, 'return 0;');
+      DecIndent();
+      EmitLn(sfSource, '}');
+    end;
+  finally
+    LTestBlocks.Free();
   end;
 end;
 
@@ -568,11 +635,20 @@ begin
   EmitLn(sfSource, '#include <stdbool.h>');
   EmitLn(sfSource, '#include <wchar.h>');
   EmitLn(sfSource, '#include "pax_runtime.h"');
+  EmitLn(sfSource, '#ifdef PAX_UNITTESTING');
+  EmitLn(sfSource, '#include "pax_unittest.h"');
+  EmitLn(sfSource, '#endif');
   EmitLnFmt(sfSource, '#include "%s.h"', [FModuleName]);
 end;
 
 procedure TPaxCodeGen.GenerateHeaderPostamble();
 begin
+  // Declare test registration function (always present, may be empty)
+  EmitLn(sfHeader);
+  EmitLn(sfHeader, '#ifdef PAX_UNITTESTING');
+  EmitLnFmt(sfHeader, 'void %s_register_tests(void);', [FModuleName]);
+  EmitLn(sfHeader, '#endif');
+
   EmitLn(sfHeader);
   EmitLn(sfHeader, '#endif');
 end;
@@ -1177,6 +1253,67 @@ begin
   end
   else if LFirst then
     Emit(AFile, 'void');
+end;
+
+procedure TPaxCodeGen.GenerateTestBlock(const ANode: PASTNode; const AIndex: Integer);
+var
+  LI: Integer;
+  LJ: Integer;
+  LChild: PASTNode;
+  LTestName: string;
+  LFuncName: string;
+begin
+  // Get test name (strip quotes)
+  LTestName := ANode^.NodeName;
+  if (Length(LTestName) >= 2) and (LTestName[1] = '''') then
+    LTestName := Copy(LTestName, 2, Length(LTestName) - 2);
+
+  // Generate sanitized function name
+  LFuncName := Format('pax_test_%d', [AIndex]);
+
+  // Emit #line directive for source mapping
+  EmitLineDirective(ANode);
+
+  // Generate test function
+  EmitLn(sfSource);
+  EmitLn(sfSource, '#ifdef PAX_UNITTESTING');
+  EmitLnFmt(sfSource, 'static void %s(void) {', [LFuncName]);
+  IncIndent();
+
+  // Register local variables in scope if needed
+  if FSymbols <> nil then
+    FSymbols.PushScope('test:' + LTestName);
+
+  // Local variables
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if (LChild^.Kind = nkBlock) and (LChild^.NodeName = 'locals') then
+    begin
+      for LJ := 0 to GetASTChildCount(LChild) - 1 do
+        GenerateVarDecl(sfSource, GetASTChild(LChild, LJ), True);
+
+      if GetASTChildCount(LChild) > 0 then
+        EmitLn(sfSource);
+    end;
+  end;
+
+  // Body
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if (LChild^.Kind = nkBlock) and (LChild^.NodeName = 'block') then
+      GenerateBlock(LChild);
+  end;
+
+  if FSymbols <> nil then
+    FSymbols.PopScope();
+
+  DecIndent();
+  EmitLn(sfSource, '}');
+  EmitLn(sfSource, '#endif // PAX_UNITTESTING');
 end;
 
 procedure TPaxCodeGen.GenerateBlock(const ANode: PASTNode);
@@ -1808,6 +1945,9 @@ var
   LSym: TSymbol;
   LTargetType: TPaxType;
   LSourceType: TPaxType;
+  LLine: Integer;
+  LIsTestAssert: Boolean;
+  LImplName: string;
 begin
   if GetASTChildCount(ANode) = 0 then
     Exit('');
@@ -1857,6 +1997,73 @@ begin
 
   LCallee := GenerateExpression(LCalleeNode);
 
+  // Check if this is a TestAssert* builtin call - needs special handling
+  LIsTestAssert := False;
+  LImplName := '';
+  if LCalleeNode^.Kind = nkIdentifier then
+  begin
+    if LCallee = 'TestAssert' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_impl';
+    end
+    else if LCallee = 'TestAssertTrue' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_true_impl';
+    end
+    else if LCallee = 'TestAssertFalse' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_false_impl';
+    end
+    else if LCallee = 'TestAssertEqualInt' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_equal_int_impl';
+    end
+    else if LCallee = 'TestAssertEqualUInt' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_equal_uint_impl';
+    end
+    else if LCallee = 'TestAssertEqualFloat' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_equal_float_impl';
+    end
+    else if LCallee = 'TestAssertEqualStr' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_equal_str_impl';
+    end
+    else if LCallee = 'TestAssertEqualBool' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_equal_bool_impl';
+    end
+    else if LCallee = 'TestAssertEqualPtr' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_equal_ptr_impl';
+    end
+    else if LCallee = 'TestAssertNil' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_nil_impl';
+    end
+    else if LCallee = 'TestAssertNotNil' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_assert_not_nil_impl';
+    end
+    else if LCallee = 'TestFail' then
+    begin
+      LIsTestAssert := True;
+      LImplName := 'pax_test_fail_impl';
+    end;
+  end;
+
   // Get callee type to check parameter types
   LCalleeType := GetExpressionType(LCalleeNode);
 
@@ -1903,7 +2110,17 @@ begin
     LArgs := LArgs + LArgExpr;
   end;
 
-  Result := Format('%s(%s)', [LCallee, LArgs]);
+  // For TestAssert* calls, append file and line parameters
+  if LIsTestAssert then
+  begin
+    LLine := ANode^.Token.Range.StartLine;
+    if LArgs <> '' then
+      LArgs := LArgs + ', ';
+    LArgs := LArgs + Format('"%s", %d', [FSourceFile, LLine]);
+    Result := Format('%s(%s)', [LImplName, LArgs]);
+  end
+  else
+    Result := Format('%s(%s)', [LCallee, LArgs]);
 end;
 
 function TPaxCodeGen.GenerateTypeCast(const ANode: PASTNode): string;

@@ -628,6 +628,11 @@ begin
     Result := ParseVarSection(LIsPublic)
   else if Check(tkRoutine) then
     Result := ParseRoutineDecl(LIsPublic)
+  else if Check(tkImport) then
+  begin
+    Error('Import declarations must appear before const, type, var, and routine declarations');
+    Exit;
+  end
   else
   begin
     Error(RSParserExpectedDeclaration, [TokenKindToString(FCurrentToken.Kind)]);
