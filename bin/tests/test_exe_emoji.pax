@@ -1,0 +1,28 @@
+module exe test_exe_emoji;
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+begin
+  // Test UTF-8 emoji output
+  printf('=== Pax UTF-8 Console Test ===\n\n');
+  
+  // Smileys
+  printf('Smileys: \xF0\x9F\x98\x80 \xF0\x9F\x98\x8E \xF0\x9F\x98\x8D \xF0\x9F\xA4\xA9\n');
+  
+  // Animals
+  printf('Animals: \xF0\x9F\x90\xB1 \xF0\x9F\x90\xB6 \xF0\x9F\xA6\x8A \xF0\x9F\xA6\x81\n');
+  
+  // Food
+  printf('Food:    \xF0\x9F\x8D\x95 \xF0\x9F\x8D\x94 \xF0\x9F\x8D\x9F \xF0\x9F\x8D\xBA\n');
+  
+  // Symbols
+  printf('Symbols: \xE2\x9C\x85 \xE2\x9D\x8C \xE2\xAD\x90 \xF0\x9F\x92\xAF\n');
+  
+  // Rocket and sparkles
+  printf('Space:   \xF0\x9F\x9A\x80 \xE2\x9C\xA8 \xF0\x9F\x8C\x9F \xF0\x9F\x8C\x8D\n');
+  
+  // Hearts
+  printf('Hearts:  \xE2\x9D\xA4 \xF0\x9F\x92\x99 \xF0\x9F\x92\x9A \xF0\x9F\x92\x9C\n');
+  
+  printf('\n=== Test Complete ===\n');
+end.

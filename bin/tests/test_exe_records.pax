@@ -1,0 +1,79 @@
+module exe test_exe_records;
+
+// Test record types and field access
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  TPoint = record
+    x: int32;
+    y: int32;
+  end;
+  
+  TRect = record
+    left: int32;
+    top: int32;
+    right: int32;
+    bottom: int32;
+  end;
+  
+  TColorPoint = record(TPoint)
+    color: uint32;
+  end;
+  
+  TNestedRecord = record
+    origin: TPoint;
+    size: TPoint;
+  end;
+
+var
+  pt: TPoint;
+  rect: TRect;
+  cpt: TColorPoint;
+  nested: TNestedRecord;
+  width: int32;
+  height: int32;
+
+begin
+  printf('=== Records Test ===\n');
+  
+  // Simple field access
+  pt.x := 10;
+  pt.y := 20;
+  printf('pt.x = %d, pt.y = %d\n', pt.x, pt.y);
+  
+  // Use fields in expressions
+  width := pt.x * 2;
+  height := pt.y + 5;
+  printf('width = %d, height = %d\n', width, height);
+  
+  // Rectangle
+  rect.left := 0;
+  rect.top := 0;
+  rect.right := 100;
+  rect.bottom := 50;
+  
+  width := rect.right - rect.left;
+  height := rect.bottom - rect.top;
+  printf('rect: width = %d, height = %d\n', width, height);
+  
+  // Extended record (inherits x, y from TPoint)
+  cpt.x := 5;
+  cpt.y := 10;
+  cpt.color := $FF0000;  // Red
+  printf('cpt.x = %d, cpt.y = %d, cpt.color = 0x%X\n', cpt.x, cpt.y, cpt.color);
+  
+  // Nested records
+  nested.origin.x := 0;
+  nested.origin.y := 0;
+  nested.size.x := 640;
+  nested.size.y := 480;
+  printf('nested.size.x = %d, nested.size.y = %d\n', nested.size.x, nested.size.y);
+  
+  // Copy values between fields
+  pt.x := nested.origin.x;
+  pt.y := nested.origin.y;
+  printf('pt copied from nested.origin: x = %d, y = %d\n', pt.x, pt.y);
+  
+  printf('\nRecords test passed!\n');
+end.

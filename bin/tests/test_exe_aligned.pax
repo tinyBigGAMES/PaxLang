@@ -1,4 +1,4 @@
-module exe test_aligned;
+module exe test_exe_aligned;
 
 // Test aligned record types for C99 interop
 

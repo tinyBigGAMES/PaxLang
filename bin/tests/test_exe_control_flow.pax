@@ -1,0 +1,94 @@
+module exe test_exe_control_flow;
+
+// Test control flow statements
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+var
+  i: int32;
+  sum: int32;
+  n: int32;
+  found: boolean;
+
+begin
+  printf('=== Control Flow Test ===\n');
+  
+  // If-then
+  n := 10;
+  if n > 5 then
+    sum := 1;
+  end;
+  printf('if n > 5: sum = %d\n', sum);
+  
+  // If-then-else
+  if n < 5 then
+    sum := 0;
+  else
+    sum := 1;
+  end;
+  printf('if-else: sum = %d\n', sum);
+  
+  // Nested if
+  if n > 0 then
+    if n < 100 then
+      sum := n;
+    end;
+  end;
+  printf('nested if: sum = %d\n', sum);
+  
+  // While loop
+  sum := 0;
+  i := 1;
+  while i <= 10 do
+    sum := sum + i;
+    i := i + 1;
+  end;
+  printf('while sum 1..10 = %d\n', sum);
+  
+  // For loop (to)
+  sum := 0;
+  for i := 1 to 10 do
+    sum := sum + i;
+  end;
+  printf('for (to) sum 1..10 = %d\n', sum);
+  
+  // For loop (downto)
+  sum := 0;
+  for i := 10 downto 1 do
+    sum := sum + i;
+  end;
+  printf('for (downto) sum 10..1 = %d\n', sum);
+  
+  // Repeat-until
+  sum := 0;
+  i := 1;
+  repeat
+    sum := sum + i;
+    i := i + 1;
+  until i > 10;
+  printf('repeat-until sum = %d\n', sum);
+  
+  // Case statement
+  n := 2;
+  case n of
+    1: sum := 10;
+    2: sum := 20;
+    3: sum := 30;
+  else
+    sum := 0;
+  end;
+  printf('case n=2: sum = %d\n', sum);
+  
+  // Case with ranges
+  n := 5;
+  case n of
+    1..3: sum := 1;
+    4..6: sum := 2;
+    7..9: sum := 3;
+  else
+    sum := 0;
+  end;
+  printf('case n=5 (ranges): sum = %d\n', sum);
+  
+  printf('\nControl flow test passed!\n');
+end.

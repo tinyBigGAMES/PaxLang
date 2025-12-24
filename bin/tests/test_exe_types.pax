@@ -1,0 +1,84 @@
+module exe test_exe_types;
+
+// Test type casting and sizeof
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  TPoint = record
+    x: int32;
+    y: int32;
+  end;
+  
+  TColor = uint32;
+
+var
+  i8: int8;
+  i16: int16;
+  i32: int32;
+  i64: int64;
+  u8: uint8;
+  u32: uint32;
+  f32: float32;
+  f64: float64;
+  b: boolean;
+  c: char;
+  size: int64;
+  ptr: pointer;
+  pt: TPoint;
+
+begin
+  printf('=== Types Test ===\n');
+  
+  // Integer conversions
+  i32 := 100;
+  i64 := int64(i32);
+  printf('int64(100) = %lld\n', i64);
+  i16 := int16(i32);
+  printf('int16(100) = %d\n', i16);
+  
+  // Unsigned conversions
+  u32 := 255;
+  u8 := uint8(u32);
+  printf('uint8(255) = %d\n', u8);
+  
+  // Float conversions
+  f64 := 3.14159;
+  f32 := float32(f64);
+  printf('float32(3.14159) = %f\n', f32);
+  
+  // Integer to float
+  i32 := 42;
+  f64 := float64(i32);
+  printf('float64(42) = %f\n', f64);
+  
+  // Float to integer (truncates)
+  f64 := 3.99;
+  i32 := int32(f64);
+  printf('int32(3.99) = %d\n', i32);
+  
+  // Boolean
+  b := true;
+  i32 := int32(b);
+  printf('int32(true) = %d\n', i32);
+  
+  // Sizeof for built-in types
+  size := sizeof(int8);
+  printf('sizeof(int8) = %lld\n', size);
+  size := sizeof(int32);
+  printf('sizeof(int32) = %lld\n', size);
+  size := sizeof(int64);
+  printf('sizeof(int64) = %lld\n', size);
+  size := sizeof(float64);
+  printf('sizeof(float64) = %lld\n', size);
+  size := sizeof(pointer);
+  printf('sizeof(pointer) = %lld\n', size);
+  
+  // Sizeof for custom types
+  size := sizeof(TPoint);
+  printf('sizeof(TPoint) = %lld\n', size);
+  size := sizeof(TColor);
+  printf('sizeof(TColor) = %lld\n', size);
+  
+  printf('\nTypes test passed!\n');
+end.

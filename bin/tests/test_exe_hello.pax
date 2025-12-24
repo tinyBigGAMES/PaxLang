@@ -1,0 +1,30 @@
+module exe test_exe_hello;
+
+routine puts(const s: pointer to char): int32; external 'msvcrt.dll';
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+  
+var
+  s: string;
+  heapBefore: int64;
+  heapAfter: int64;
+
+begin
+  heapBefore := gc_heapsize();
+  //puts(pointer to char('Hello, World!'));
+  puts('Hello, World!');
+  printf('Hello %s, you are %d years old\n', 'World', 42);
+  
+  s := 'this is a string';
+  
+  puts(pointer to char(s));
+  //hjh
+  gc_collect();
+  heapAfter := gc_heapsize();
+  
+  printf('Heap before: %lld bytes\n', heapBefore);
+  printf('Heap after:  %lld bytes\n', heapAfter);
+  printf('GC cycles:   %lld\n', gc_collectcount());
+  
+  //printf('\n--- GC Dump ---\n');
+  //gc_dump();
+end.

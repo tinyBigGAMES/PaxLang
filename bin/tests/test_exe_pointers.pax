@@ -1,0 +1,76 @@
+module exe test_exe_pointers;
+
+// Test pointer operations
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  TPoint = record
+    x: int32;
+    y: int32;
+  end;
+  
+  PPoint = pointer to TPoint;
+  PInt32 = pointer to int32;
+
+var
+  pt: TPoint;
+  ppt: PPoint;
+  pval: PInt32;
+  
+  val: int32;
+  ptr: pointer;
+
+begin
+  printf('=== Pointers Test ===\n');
+  
+  // Pointer to record - allocate
+  new(ppt);
+  
+  // Access through pointer (dereference + field)
+  ppt^.x := 100;
+  ppt^.y := 200;
+  
+  // Read back
+  val := ppt^.x + ppt^.y;
+  printf('ppt^.x + ppt^.y = %d\n', val);
+  
+  // Copy to local
+  pt.x := ppt^.x;
+  pt.y := ppt^.y;
+  printf('pt.x = %d, pt.y = %d\n', pt.x, pt.y);
+  
+  // Free the pointer
+  dispose(ppt);
+  
+  // Pointer to simple type
+  new(pval);
+  pval^ := 42;
+  val := pval^;
+  printf('pval^ = %d\n', val);
+  dispose(pval);
+  
+  // Nil pointer
+  ppt := nil;
+  ptr := nil;
+  
+  // Allocate again
+  new(ppt);
+  ppt^.x := 10;
+  ppt^.y := 20;
+  
+  // Pointer comparison (check if nil)
+  if ppt <> nil then
+    val := ppt^.x;
+    printf('ppt <> nil, ppt^.x = %d\n', val);
+  end;
+  
+  dispose(ppt);
+  ppt := nil;
+  
+  if ppt = nil then
+    printf('ppt = nil after dispose\n');
+  end;
+  
+  printf('\nPointers test passed!\n');
+end.

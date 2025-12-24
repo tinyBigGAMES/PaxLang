@@ -1,0 +1,72 @@
+module exe test_exe_expressions;
+
+// Test arithmetic and comparison expressions
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+var
+  a: int32;
+  b: int32;
+  c: int32;
+  d: int64;
+  f1: float32;
+  f2: float64;
+  ok: boolean;
+
+begin
+  printf('=== Expressions Test ===\n');
+  
+  // Integer arithmetic
+  a := 10;
+  b := 3;
+  c := a + b;
+  printf('10 + 3 = %d\n', c);
+  c := a - b;
+  printf('10 - 3 = %d\n', c);
+  c := a * b;
+  printf('10 * 3 = %d\n', c);
+  c := a div b;
+  printf('10 div 3 = %d\n', c);
+  c := a mod b;
+  printf('10 mod 3 = %d\n', c);
+  
+  // Unary operators
+  c := -a;
+  printf('-10 = %d\n', c);
+  
+  // Parentheses
+  c := (a + b) * 2;
+  printf('(10 + 3) * 2 = %d\n', c);
+  
+  // Larger integers
+  d := 1000000000;
+  d := d * 10;
+  printf('1000000000 * 10 = %lld\n', d);
+  
+  // Float arithmetic
+  f1 := 3.14;
+  f2 := f1 * 2.0;
+  printf('3.14 * 2.0 = %f\n', f2);
+  
+  // Comparison operators
+  ok := a = 10;
+  printf('10 = 10 is %d\n', ok);
+  ok := a > b;
+  printf('10 > 3 is %d\n', ok);
+  
+  // Logical operators
+  ok := true and true;
+  printf('true and true = %d\n', ok);
+  ok := true or false;
+  printf('true or false = %d\n', ok);
+  ok := not false;
+  printf('not false = %d\n', ok);
+  ok := (a > 5) and (b < 10);
+  printf('(10 > 5) and (3 < 10) = %d\n', ok);
+  
+  // Hex literals
+  c := $FF;
+  printf('$FF = %d\n', c);
+  
+  printf('\nExpressions test passed!\n');
+end.

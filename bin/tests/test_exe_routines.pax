@@ -1,0 +1,119 @@
+module exe test_exe_routines;
+
+// Test routine declarations and calls
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+var
+  result: int32;
+  fact: int64;
+
+// Simple procedure (no return value)
+routine DoNothing();
+begin
+end;
+
+// Function with return value
+routine Add(const a: int32; const b: int32): int32;
+begin
+  return a + b;
+end;
+
+// Function with local variables
+routine Sum(const n: int32): int32;
+var
+  i: int32;
+  total: int32;
+begin
+  total := 0;
+  for i := 1 to n do
+    total := total + i;
+  end;
+  return total;
+end;
+
+// Recursive function - factorial
+routine Factorial(const n: int64): int64;
+begin
+  if n <= 1 then
+    return 1;
+  else
+    return n * Factorial(n - 1);
+  end;
+end;
+
+// Recursive function - fibonacci
+routine Fibonacci(const n: int32): int32;
+begin
+  if n <= 1 then
+    return n;
+  else
+    return Fibonacci(n - 1) + Fibonacci(n - 2);
+  end;
+end;
+
+// Var parameter (pass by reference)
+routine Increment(var value: int32);
+begin
+  value := value + 1;
+end;
+
+// Swap using var parameters
+routine Swap(var a: int32; var b: int32);
+var
+  temp: int32;
+begin
+  temp := a;
+  a := b;
+  b := temp;
+end;
+
+// Multiple parameters
+routine Max3(const a: int32; const b: int32; const c: int32): int32;
+var
+  m: int32;
+begin
+  m := a;
+  if b > m then
+    m := b;
+  end;
+  if c > m then
+    m := c;
+  end;
+  return m;
+end;
+
+begin
+  printf('=== Routines Test ===\n');
+  
+  // Call procedure
+  DoNothing();
+  printf('DoNothing() called\n');
+  
+  // Call function
+  result := Add(10, 20);
+  printf('Add(10, 20) = %d\n', result);
+  
+  // Call function with local vars
+  result := Sum(10);
+  printf('Sum(10) = %d\n', result);
+  
+  // Recursive call
+  fact := Factorial(10);
+  printf('Factorial(10) = %lld\n', fact);
+  
+  // Fibonacci
+  result := Fibonacci(10);
+  printf('Fibonacci(10) = %d\n', result);
+  
+  // Var parameter
+  result := 5;
+  Increment(result);
+  printf('After Increment(5): result = %d\n', result);
+  
+  // Multiple params
+  result := Max3(10, 25, 15);
+  printf('Max3(10, 25, 15) = %d\n', result);
+  
+  printf('\nRoutines test passed!\n');
+end.

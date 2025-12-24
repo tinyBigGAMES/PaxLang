@@ -1,4 +1,4 @@
-module exe test_aligned_error;
+module exe test_exe_aligned_error;
 
 // Test that alignment > 16 produces an error
 

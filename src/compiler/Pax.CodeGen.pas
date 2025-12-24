@@ -1459,19 +1459,38 @@ var
   LI, LJ: Integer;
   LChild, LArmChild: PASTNode;
   LSelector: string;
-  LFirst: Boolean;
-  LLabelFirst: Boolean;
   LLabelExpr: string;
   LLow: string;
   LHigh: string;
+  LSelectorNode: PASTNode;
+  LSelectorType: TPaxType;
+  LIsCharSwitch: Boolean;
+
+  function GenerateCaseLabel(const ALabelNode: PASTNode): string;
+  begin
+    // For char switches, convert string literals to C char constants
+    if LIsCharSwitch and (ALabelNode^.Kind = nkStrLiteral) then
+      Result := '''' + EscapeString(ALabelNode^.StrVal) + ''''
+    else if LIsCharSwitch and (ALabelNode^.Kind = nkWideStrLiteral) then
+      Result := 'L''' + EscapeString(ALabelNode^.StrVal) + ''''
+    else
+      Result := GenerateExpression(ALabelNode);
+  end;
+
 begin
   if GetASTChildCount(ANode) = 0 then
     Exit;
 
-  LSelector := GenerateExpression(GetASTChild(ANode, 0));
+  LSelectorNode := GetASTChild(ANode, 0);
+  LSelector := GenerateExpression(LSelectorNode);
 
-  // Generate as if-else chain for safety
-  LFirst := True;
+  // Determine if this is a char/wchar switch
+  LSelectorType := GetExpressionType(LSelectorNode);
+  LIsCharSwitch := (LSelectorType <> nil) and
+                   (LSelectorType.Kind in [tkChar, tkUChar, tkWChar, tkUWChar]);
+
+  // Generate native C switch statement with TCC range extension
+  EmitLnFmt(sfSource, 'switch (%s) {', [LSelector]);
 
   for LI := 1 to GetASTChildCount(ANode) - 1 do
   begin
@@ -1479,13 +1498,7 @@ begin
 
     if LChild^.Kind = nkCaseArm then
     begin
-      if LFirst then
-        Emit(sfSource, GetIndentStr() + 'if (')
-      else
-        Emit(sfSource, ' else if (');
-
-      // Generate label conditions
-      LLabelFirst := True;
+      // Generate case labels
       for LJ := 0 to GetASTChildCount(LChild) - 1 do
       begin
         LArmChild := GetASTChild(LChild, LJ);
@@ -1493,54 +1506,44 @@ begin
         if LArmChild^.Kind = nkBlock then
           Continue;
 
-        if not LLabelFirst then
-          Emit(sfSource, ' || ');
-        LLabelFirst := False;
-
         if LArmChild^.Kind = nkSetRange then
         begin
-          // Range label
-          LLow := GenerateExpression(GetASTChild(LArmChild, 0));
-          LHigh := GenerateExpression(GetASTChild(LArmChild, 1));
-          EmitFmt(sfSource, '(%s >= %s && %s <= %s)', [LSelector, LLow, LSelector, LHigh]);
+          // Range label - use TCC extension: case low ... high:
+          LLow := GenerateCaseLabel(GetASTChild(LArmChild, 0));
+          LHigh := GenerateCaseLabel(GetASTChild(LArmChild, 1));
+          EmitLnFmt(sfSource, 'case %s ... %s:', [LLow, LHigh]);
         end
         else
         begin
-          LLabelExpr := GenerateExpression(LArmChild);
-          EmitFmt(sfSource, '(%s == %s)', [LSelector, LLabelExpr]);
+          // Single value label
+          LLabelExpr := GenerateCaseLabel(LArmChild);
+          EmitLnFmt(sfSource, 'case %s:', [LLabelExpr]);
         end;
       end;
 
-      Emit(sfSource, ') {');
-      EmitLn(sfSource);
+      // Generate body with indentation
       IncIndent();
-
-      // Generate body
       for LJ := 0 to GetASTChildCount(LChild) - 1 do
       begin
         LArmChild := GetASTChild(LChild, LJ);
         if LArmChild^.Kind = nkBlock then
           GenerateBlock(LArmChild);
       end;
-
+      EmitLn(sfSource, 'break;');
       DecIndent();
-      Emit(sfSource, GetIndentStr() + '}');
-
-      LFirst := False;
     end
     else if LChild^.Kind = nkBlock then
     begin
-      // Else block
-      Emit(sfSource, ' else {');
-      EmitLn(sfSource);
+      // Default block (else clause)
+      EmitLn(sfSource, 'default:');
       IncIndent();
       GenerateBlock(LChild);
+      EmitLn(sfSource, 'break;');
       DecIndent();
-      Emit(sfSource, GetIndentStr() + '}');
     end;
   end;
 
-  EmitLn(sfSource);
+  EmitLn(sfSource, '}');
 end;
 
 procedure TPaxCodeGen.GenerateReturnStmt(const ANode: PASTNode);

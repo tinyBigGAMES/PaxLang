@@ -1,4 +1,4 @@
-module exe test_anonymous;
+module exe test_exe_anonymous;
 
 // Test anonymous unions and records for C99 interop
 

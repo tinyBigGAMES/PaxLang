@@ -92,6 +92,8 @@ type
     function ParseRoutineType(): PASTNode;
     function ParseTypeName(): PASTNode;
 
+    function LooksLikeCaseLabel(): Boolean;
+
     // Statements
     function ParseBlock(): PASTNode;
     function ParseStatement(): PASTNode;
@@ -1398,6 +1400,33 @@ begin
   end;
 end;
 
+function TPaxParser.LooksLikeCaseLabel(): Boolean;
+var
+  LNextKind: TTokenKind;
+begin
+  // Check if current position looks like a case label: value [..] :
+  Result := False;
+  
+  if Check(tkInteger) or Check(tkChar) or Check(tkString) then
+  begin
+    // Look ahead for : or ..
+    LNextKind := PeekNext().Kind;
+    if LNextKind in [tkColon, tkDotDot] then
+      Result := True;
+  end
+  else if Check(tkMinus) then
+  begin
+    // Could be negative number: -Integer : or -Integer ..
+    // Check if next is integer and after that is : or ..
+    if PeekNext().Kind = tkInteger then
+    begin
+      // Need to look two ahead - simplified: just check next is integer
+      // Full check would require looking 3 tokens ahead
+      Result := True;
+    end;
+  end;
+end;
+
 function TPaxParser.ParseBlock(): PASTNode;
 var
   LToken: TToken;
@@ -1410,7 +1439,8 @@ begin
 
   while not IsAtEnd() and not Check(tkEnd) and not Check(tkElse) and not Check(tkUntil) and
         not Check(tkPublic) and not Check(tkConst) and not Check(tkType) and
-        not Check(tkVar) and not Check(tkRoutine) and not Check(tkTest) do
+        not Check(tkVar) and not Check(tkRoutine) and not Check(tkTest) and
+        not LooksLikeCaseLabel() do
   begin
     // Bail out if too many errors
     if (FErrors <> nil) and FErrors.ReachedMaxErrors() then

@@ -1,0 +1,195 @@
+module exe test_exe_case;
+
+// Comprehensive test for case statements with ranges
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+var
+  n: int32;
+  ch: char;
+  result: int32;
+
+begin
+  printf('=== Case Statement Test ===\n\n');
+  
+  // Test 1: Single integer values
+  printf('--- Single Values ---\n');
+  n := 2;
+  case n of
+    1: result := 10;
+    2: result := 20;
+    3: result := 30;
+  else
+    result := 0;
+  end;
+  printf('case 2 of 1,2,3: result = %d (expected 20)\n', result);
+  
+  // Test 2: Integer ranges
+  printf('\n--- Integer Ranges ---\n');
+  n := 5;
+  case n of
+    1..3: result := 1;
+    4..6: result := 2;
+    7..9: result := 3;
+  else
+    result := 0;
+  end;
+  printf('case 5 of 1..3,4..6,7..9: result = %d (expected 2)\n', result);
+  
+  // Test 3: Range boundaries
+  printf('\n--- Range Boundaries ---\n');
+  n := 4;
+  case n of
+    1..3: result := 1;
+    4..6: result := 2;
+    7..9: result := 3;
+  else
+    result := 0;
+  end;
+  printf('case 4 (lower bound): result = %d (expected 2)\n', result);
+  
+  n := 6;
+  case n of
+    1..3: result := 1;
+    4..6: result := 2;
+    7..9: result := 3;
+  else
+    result := 0;
+  end;
+  printf('case 6 (upper bound): result = %d (expected 2)\n', result);
+  
+  // Test 4: Mixed single values and ranges
+  printf('\n--- Mixed Singles and Ranges ---\n');
+  n := 0;
+  case n of
+    0: result := 100;
+    1..5: result := 200;
+    10: result := 300;
+    20..30: result := 400;
+  else
+    result := -1;
+  end;
+  printf('case 0 (single): result = %d (expected 100)\n', result);
+  
+  n := 3;
+  case n of
+    0: result := 100;
+    1..5: result := 200;
+    10: result := 300;
+    20..30: result := 400;
+  else
+    result := -1;
+  end;
+  printf('case 3 (in range): result = %d (expected 200)\n', result);
+  
+  n := 25;
+  case n of
+    0: result := 100;
+    1..5: result := 200;
+    10: result := 300;
+    20..30: result := 400;
+  else
+    result := -1;
+  end;
+  printf('case 25 (in range): result = %d (expected 400)\n', result);
+  
+  // Test 5: Else clause
+  printf('\n--- Else Clause ---\n');
+  n := 99;
+  case n of
+    1..10: result := 1;
+  else
+    result := -1;
+  end;
+  printf('case 99 (else): result = %d (expected -1)\n', result);
+  
+  // Test 6: No else clause (value not matched)
+  printf('\n--- No Else Clause ---\n');
+  result := 999;
+  n := 50;
+  case n of
+    1..10: result := 1;
+    20..30: result := 2;
+  end;
+  printf('case 50 (no match, no else): result = %d (expected 999 unchanged)\n', result);
+  
+  // Test 7: Negative values
+  printf('\n--- Negative Values ---\n');
+  n := -5;
+  case n of
+    -10..-6: result := 1;
+    -5..-1: result := 2;
+    0..5: result := 3;
+  else
+    result := 0;
+  end;
+  printf('case -5: result = %d (expected 2)\n', result);
+  
+  // Test 8: Character single values
+  printf('\n--- Character Singles ---\n');
+  ch := 'B';
+  case ch of
+    'A': result := 1;
+    'B': result := 2;
+    'C': result := 3;
+  else
+    result := 0;
+  end;
+  printf('case B: result = %d (expected 2)\n', result);
+  
+  // Test 9: Character ranges
+  printf('\n--- Character Ranges ---\n');
+  ch := 'm';
+  case ch of
+    'a'..'z': result := 1;
+    'A'..'Z': result := 2;
+    '0'..'9': result := 3;
+  else
+    result := 0;
+  end;
+  printf('case m (lowercase): result = %d (expected 1)\n', result);
+  
+  ch := 'G';
+  case ch of
+    'a'..'z': result := 1;
+    'A'..'Z': result := 2;
+    '0'..'9': result := 3;
+  else
+    result := 0;
+  end;
+  printf('case G (uppercase): result = %d (expected 2)\n', result);
+  
+  ch := '5';
+  case ch of
+    'a'..'z': result := 1;
+    'A'..'Z': result := 2;
+    '0'..'9': result := 3;
+  else
+    result := 0;
+  end;
+  printf('case 5 (digit): result = %d (expected 3)\n', result);
+  
+  // Test 10: Adjacent ranges
+  printf('\n--- Adjacent Ranges ---\n');
+  n := 10;
+  case n of
+    1..9: result := 1;
+    10..19: result := 2;
+    20..29: result := 3;
+  else
+    result := 0;
+  end;
+  printf('case 10 (boundary): result = %d (expected 2)\n', result);
+  
+  // Test 11: Single element range
+  printf('\n--- Single Element Range ---\n');
+  n := 5;
+  case n of
+    5..5: result := 100;
+  else
+    result := 0;
+  end;
+  printf('case 5 of 5..5: result = %d (expected 100)\n', result);
+  
+  printf('\n=== Case Statement Test Complete ===\n');
+end.

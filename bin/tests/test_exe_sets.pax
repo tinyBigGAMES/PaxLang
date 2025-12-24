@@ -1,0 +1,74 @@
+module exe test_exe_sets;
+
+// Test set types and operations
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  TDigits = set of 0..9;
+  TFlags = set of 0..31;
+
+var
+  digits: TDigits;
+  flags: TFlags;
+  evens: TDigits;
+  odds: TDigits;
+  n: int32;
+  hasFlag: boolean;
+
+begin
+  printf('=== Sets Test ===\n');
+  
+  // Empty set
+  digits := {};
+  printf('Empty set created\n');
+  
+  // Set literal with values
+  digits := {1, 2, 3};
+  printf('digits := {1, 2, 3}\n');
+  
+  // Set literal with range
+  evens := {0, 2, 4, 6, 8};
+  odds := {1, 3, 5, 7, 9};
+  printf('evens and odds sets created\n');
+  
+  // Mixed values and ranges
+  digits := {0, 2..5, 8, 9};
+  printf('digits := {0, 2..5, 8, 9}\n');
+  
+  // Set membership test (in operator)
+  n := 3;
+  hasFlag := n in digits;
+  printf('3 in digits = %d\n', hasFlag);
+  
+  n := 7;
+  hasFlag := n in digits;
+  printf('7 in digits = %d\n', hasFlag);
+  
+  // Flags
+  flags := {0, 1, 4, 8};
+  printf('flags := {0, 1, 4, 8}\n');
+  
+  // Check flag
+  hasFlag := 4 in flags;
+  printf('4 in flags = %d\n', hasFlag);
+  hasFlag := 5 in flags;
+  printf('5 in flags = %d\n', hasFlag);
+  
+  // Use in condition
+  n := 5;
+  if n in evens then
+    n := 0;
+  else
+    n := 1;
+  end;
+  printf('5 in evens? n = %d\n', n);
+  
+  // Range in condition
+  if n in {0..10} then
+    hasFlag := true;
+  end;
+  printf('n in {0..10} = %d\n', hasFlag);
+  
+  printf('\nSets test passed!\n');
+end.

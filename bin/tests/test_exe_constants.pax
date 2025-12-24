@@ -1,0 +1,69 @@
+module exe test_exe_constants;
+
+// Test constant declarations
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+const
+  // Integer constants
+  MAX_SIZE: int32 = 100;
+  MIN_SIZE: int32 = 1;
+  BUFFER_SIZE = 1024;
+  
+  // Hex constants
+  RED: uint32 = $FF0000;
+  GREEN: uint32 = $00FF00;
+  BLUE: uint32 = $0000FF;
+  WHITE: uint32 = $FFFFFF;
+  
+  // Float constants
+  PI: float64 = 3.14159265359;
+  E: float64 = 2.71828182845;
+  
+  // Boolean constants
+  DEBUG_MODE: boolean = true;
+  RELEASE_MODE: boolean = false;
+  
+  // Char constants
+  SPACE: char = ' ';
+  ZERO: char = '0';
+
+var
+  size: int32;
+  color: uint32;
+  area: float64;
+  radius: float64;
+
+begin
+  printf('=== Constants Test ===\n');
+  
+  // Use constants
+  size := MAX_SIZE;
+  printf('MAX_SIZE = %d\n', size);
+  size := MIN_SIZE;
+  printf('MIN_SIZE = %d\n', size);
+  size := BUFFER_SIZE;
+  printf('BUFFER_SIZE = %d\n', size);
+  
+  // Color constants
+  color := RED;
+  printf('RED = 0x%X\n', color);
+  color := WHITE;
+  printf('WHITE = 0x%X\n', color);
+  
+  // Math with constants
+  radius := 5.0;
+  area := PI * radius * radius;
+  printf('PI * 5^2 = %f\n', area);
+  
+  // Conditional with constants
+  if DEBUG_MODE then
+    printf('DEBUG_MODE is true\n');
+  end;
+  
+  // Expression with constants
+  size := MAX_SIZE - MIN_SIZE;
+  printf('MAX_SIZE - MIN_SIZE = %d\n', size);
+  
+  printf('\nConstants test passed!\n');
+end.

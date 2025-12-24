@@ -1,4 +1,4 @@
-module exe test_unions;
+module exe test_exe_unions;
 
 // Test union types for C99 interop
 

@@ -1,4 +1,4 @@
-module exe test_packed_records;
+module exe test_exe_packed_records;
 
 // Test packed record types for C99 struct interop
 
