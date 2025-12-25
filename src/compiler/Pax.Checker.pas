@@ -227,6 +227,12 @@ var
   LName: string;
   LSym: TSymbol;
 begin
+  if ANode = nil then
+  begin
+    Result := FTypes.ErrorType;
+    Exit;
+  end;
+
   LName := ANode^.NodeName;
 
   // Check built-in types first
@@ -1487,6 +1493,11 @@ begin
         Result := LTargetType
       else if LTargetType.IsInteger() and LSourceType.IsChar() then
         Result := LTargetType
+      // boolean <-> integer
+      else if LTargetType.IsInteger() and LSourceType.IsBoolean() then
+        Result := LTargetType
+      else if LTargetType.IsBoolean() and LSourceType.IsInteger() then
+        Result := LTargetType
       // string -> pointer to char: extract data pointer
       else if (LSourceType.Kind = tkString) and LTargetType.IsPointer() and
               (LTargetType.ElementType <> nil) and (LTargetType.ElementType.Kind = tkChar) then
@@ -1573,6 +1584,11 @@ begin
   else if LTargetType.IsChar() and LSourceType.IsInteger() then
     Result := LTargetType
   else if LTargetType.IsInteger() and LSourceType.IsChar() then
+    Result := LTargetType
+  // boolean <-> integer
+  else if LTargetType.IsInteger() and LSourceType.IsBoolean() then
+    Result := LTargetType
+  else if LTargetType.IsBoolean() and LSourceType.IsInteger() then
     Result := LTargetType
   // string -> pointer to char: extract data pointer
   else if (LSourceType.Kind = tkString) and LTargetType.IsPointer() and

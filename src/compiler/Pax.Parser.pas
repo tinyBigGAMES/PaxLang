@@ -1117,12 +1117,10 @@ begin
   // Optional parent type
   if Match(tkLParen) then
   begin
-    LParentType := ParseTypeName();
-    if LParentType <> nil then
-    begin
-      LParentType^.NodeName := 'parent';
-      AddASTChild(Result, LParentType);
-    end;
+    LParentType := CreateASTNode(nkTypeRef);
+    LParentType^.NodeName := 'parent';
+    AddASTChild(LParentType, ParseTypeName());
+    AddASTChild(Result, LParentType);
     Expect(tkRParen);
   end;
 

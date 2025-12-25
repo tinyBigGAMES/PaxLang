@@ -89,3 +89,4 @@ checkpoint.yml
 checkpoint.zip
 distro.yml
 checkpoint_base.zip
+bin/tests/view.txt

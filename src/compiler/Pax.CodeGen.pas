@@ -46,6 +46,7 @@ type
     FSourceFile: string;
     FCurrentReturnType: TPaxType;
     FIsDLL: Boolean;
+    FVarParams: TDictionary<string, Boolean>;  // Track var parameters in current routine
 
     // Stats
     FHeaderLines: Integer;
@@ -179,12 +180,15 @@ begin
   FSourceFile := '';
   FCurrentReturnType := nil;
   FIsDLL := False;
+  FVarParams := TDictionary<string, Boolean>.Create();
 end;
 
 destructor TPaxCodeGen.Destroy();
 var
   LFile: TSourceFile;
 begin
+  FVarParams.Free();
+
   for LFile := Low(TSourceFile) to High(TSourceFile) do
     FBuilders[LFile].Free();
 
@@ -336,8 +340,10 @@ end;
 
 function TPaxCodeGen.TypeToCDecl(const AType: TPaxType; const AName: string): string;
 var
-  LElementType: string;
+  LBaseType: TPaxType;
+  LDimensions: string;
   LCount: Int64;
+  LCurrentType: TPaxType;
 begin
   if AType = nil then
     Exit('void ' + AName);
@@ -347,15 +353,30 @@ begin
     if AType.IsFlexibleArray then
     begin
       // Flexible array member (C99): type name[]
-      LElementType := TypeToC(AType.ElementType);
-      Result := Format('%s %s[]', [LElementType, AName]);
+      Result := Format('%s %s[]', [TypeToC(AType.ElementType), AName]);
     end
     else if not AType.IsDynamic then
     begin
-      // Static array: type name[size]
-      LElementType := TypeToC(AType.ElementType);
-      LCount := AType.HighBound - AType.LowBound + 1;
-      Result := Format('%s %s[%d]', [LElementType, AName, LCount]);
+      // Static array - need to handle nested static arrays properly
+      // Collect all dimensions and find the base element type
+      LDimensions := '';
+      LCurrentType := AType;
+      
+      while (LCurrentType <> nil) and (LCurrentType.Kind = tkArray) and 
+            (not LCurrentType.IsDynamic) and (not LCurrentType.IsFlexibleArray) do
+      begin
+        LCount := LCurrentType.HighBound - LCurrentType.LowBound + 1;
+        LDimensions := LDimensions + Format('[%d]', [LCount]);
+        LCurrentType := LCurrentType.ElementType;
+      end;
+      
+      // LCurrentType is now the innermost non-static-array element type
+      if LCurrentType <> nil then
+        LBaseType := LCurrentType
+      else
+        LBaseType := AType.ElementType;
+      
+      Result := Format('%s %s%s', [TypeToC(LBaseType), AName, LDimensions]);
     end
     else
       Result := TypeToC(AType) + ' ' + AName;
@@ -709,7 +730,14 @@ begin
   if GetASTChildCount(ANode) > 0 then
   begin
     LValueNode := GetASTChild(ANode, GetASTChildCount(ANode) - 1);
-    LValue := GenerateExpression(LValueNode);
+    
+    // Special handling for char constants with string literal values
+    if (LType <> nil) and (LType.Kind = tkChar) and (LValueNode^.Kind = nkStrLiteral) then
+      LValue := '''' + EscapeString(LValueNode^.StrVal) + ''''
+    else if (LType <> nil) and (LType.Kind = tkWChar) and (LValueNode^.Kind = nkWideStrLiteral) then
+      LValue := 'L''' + EscapeWideString(LValueNode^.StrVal) + ''''
+    else
+      LValue := GenerateExpression(LValueNode);
   end
   else
     LValue := '0';
@@ -748,11 +776,43 @@ begin
 end;
 
 procedure TPaxCodeGen.GenerateRecordType(const AFile: TSourceFile; const ANode: PASTNode; const AName: string);
+
+  // Helper: Emit inherited fields from parent type (recursively)
+  procedure EmitParentFields(const AType: TPaxType);
+  var
+    LJ: Integer;
+    LField: TPaxField;
+  begin
+    if AType = nil then
+      Exit;
+
+    // First emit grandparent fields (recursive)
+    if AType.ParentType <> nil then
+      EmitParentFields(AType.ParentType);
+
+    // Then emit this type's own fields
+    for LJ := 0 to AType.Fields.Count - 1 do
+    begin
+      LField := AType.Fields[LJ];
+      if LField.FieldType <> nil then
+      begin
+        if LField.BitWidth > 0 then
+          EmitLnFmt(AFile, '%s : %d;', [TypeToCDecl(LField.FieldType, LField.FieldName), LField.BitWidth])
+        else
+          EmitLnFmt(AFile, '%s;', [TypeToCDecl(LField.FieldType, LField.FieldName)]);
+      end
+      else
+        EmitLnFmt(AFile, 'void* %s; // unknown type', [LField.FieldName]);
+    end;
+  end;
+
 var
   LI: Integer;
   LChild: PASTNode;
   LTypeNode: PASTNode;
+  LParentTypeNode: PASTNode;
   LFieldType: TPaxType;
+  LParentType: TPaxType;
   LIsPacked: Boolean;
   LAlignment: Integer;
 begin
@@ -771,6 +831,29 @@ begin
     EmitLnFmt(AFile, 'typedef struct %s {', [AName]);
   IncIndent();
 
+  // Look for parent type and emit inherited fields first
+  LParentType := nil;
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+    if (LChild^.Kind = nkTypeRef) and (LChild^.NodeName = 'parent') then
+    begin
+      // Get the actual type name from the child of the parent wrapper
+      if GetASTChildCount(LChild) > 0 then
+      begin
+        LParentTypeNode := GetASTChild(LChild, 0);
+        if (FTypes <> nil) and (LParentTypeNode <> nil) then
+          LParentType := FTypes.GetType(LParentTypeNode^.NodeName);
+      end;
+      Break;
+    end;
+  end;
+
+  // Emit inherited fields from parent (recursively)
+  if LParentType <> nil then
+    EmitParentFields(LParentType);
+
+  // Emit this record's own fields
   for LI := 0 to GetASTChildCount(ANode) - 1 do
   begin
     LChild := GetASTChild(ANode, LI);
@@ -1013,12 +1096,15 @@ begin
   // Store return type for GenerateReturnStmt
   FCurrentReturnType := LReturnType;
 
+  // Clear var params tracking from any previous routine
+  FVarParams.Clear();
+
   // Push scope and register parameters for type lookup during code gen
   if FSymbols <> nil then
   begin
     FSymbols.PushScope(ANode^.NodeName);
 
-    // Register parameters in scope
+    // Register parameters in scope and track var parameters
     for LI := 0 to GetASTChildCount(ANode) - 1 do
     begin
       LChild := GetASTChild(ANode, LI);
@@ -1041,6 +1127,10 @@ begin
               LParamSym := FSymbols.Define(LParam^.NodeName, skParam);
               LParamSym.SymbolType := LParamType;
             end;
+
+            // Track var parameters
+            if LParam^.StrVal = 'var' then
+              FVarParams.AddOrSetValue(LParam^.NodeName, True);
           end;
         end;
       end;
@@ -1842,6 +1932,14 @@ begin
     end;
   end;
 
+  // Special handling for set membership
+  if ANode^.Op = opIn then
+  begin
+    // Set membership: check if bit LLeft is set in LRight
+    Result := Format('(((1ULL << %s) & %s) != 0)', [LLeft, LRight]);
+    Exit;
+  end;
+
   LOp := OperatorToC(ANode^.Op);
   Result := Format('(%s %s %s)', [LLeft, LOp, LRight]);
 end;
@@ -1869,6 +1967,10 @@ end;
 function TPaxCodeGen.GenerateIdentifier(const ANode: PASTNode): string;
 begin
   Result := ANode^.NodeName;
+
+  // If this is a var parameter, dereference it
+  if FVarParams.ContainsKey(Result) then
+    Result := '(*' + Result + ')';
 end;
 
 function TPaxCodeGen.GenerateFieldAccess(const ANode: PASTNode): string;
@@ -2111,6 +2213,19 @@ begin
       LArgExpr := Format('pax_wstring_new(%s)', [LArgExpr]);
     end;
 
+    // Check if this is a var parameter - need to pass address
+    if (LCalleeType <> nil) and (LCalleeType.Kind = tkRoutine) and
+       (LI - 1 < LCalleeType.Params.Count) and
+       (LCalleeType.Params[LI - 1].Mode = pmVar) then
+    begin
+      // If argument is already a var param, pass the pointer directly (not dereferenced)
+      if (LArgNode^.Kind = nkIdentifier) and FVarParams.ContainsKey(LArgNode^.NodeName) then
+        LArgExpr := LArgNode^.NodeName
+      else
+        // Need to pass address of expression
+        LArgExpr := '&(' + LArgExpr + ')';
+    end;
+
     LArgs := LArgs + LArgExpr;
   end;
 
@@ -2197,20 +2312,41 @@ var
   LTypeNode: PASTNode;
   LType: string;
   LTargetType: TPaxType;
+  LTypeName: string;
 begin
   if GetASTChildCount(ANode) = 0 then
     Exit('0');
 
   LTypeNode := GetASTChild(ANode, 0);
   LTargetType := nil;
-
-  if (FTypes <> nil) and (LTypeNode^.Kind = nkTypeRef) then
+  
+  // Try to resolve the type through multiple approaches
+  // 1. Use ResolveTypeNode for structured type nodes
+  LTargetType := ResolveTypeNode(LTypeNode);
+  
+  // 2. If that failed, try direct type lookup by node name
+  if (LTargetType = nil) and (FTypes <> nil) and (LTypeNode^.NodeName <> '') then
     LTargetType := FTypes.GetType(LTypeNode^.NodeName);
+    
+  // 3. For identifier nodes, also try looking up in symbol table
+  if (LTargetType = nil) and (LTypeNode^.Kind = nkIdentifier) and (FSymbols <> nil) then
+  begin
+    var LSym := FSymbols.Lookup(LTypeNode^.NodeName);
+    if (LSym <> nil) and (LSym.Kind = skType) then
+      LTargetType := LSym.SymbolType;
+  end;
 
   if LTargetType <> nil then
-    LType := TypeToC(LTargetType)
+  begin
+    LType := TypeToC(LTargetType);
+    // Ensure we never get an empty string
+    if LType = '' then
+      LType := 'void*';
+  end
+  else if LTypeNode^.NodeName <> '' then
+    LType := LTypeNode^.NodeName
   else
-    LType := LTypeNode^.NodeName;
+    LType := 'void*';  // Fallback for unresolved types
 
   Result := Format('sizeof(%s)', [LType]);
 end;
