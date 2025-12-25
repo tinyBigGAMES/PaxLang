@@ -63,6 +63,18 @@ type
     FVerbose: Boolean;
     FUnitTestMode: Boolean;
 
+    // Version info and post-build settings
+    FAddVersionInfo: Boolean;
+    FVIMajor: Word;
+    FVIMinor: Word;
+    FVIPatch: Word;
+    FVIProductName: string;
+    FVIDescription: string;
+    FVIFilename: string;
+    FVICompanyName: string;
+    FVICopyright: string;
+    FExeIcon: string;
+
     function SafeLoadFile(const AFilename: string): string;
     function SafeSaveFile(const AFilename: string; const AContent: string): Boolean;
     function GetTypes(): TPaxTypeRegistry;
@@ -90,6 +102,8 @@ type
     function SaveGeneratedFiles(): Boolean;
     procedure ProcessDirectivesPre();
     procedure ProcessDirectivesPost();
+    procedure ProcessVersionInfoDirectives();
+    procedure ApplyPostBuildResources(const AExePath: string);
     function BuildEXE(const AOutputPath: string): Boolean;
     function BuildDLL(const AOutputPath: string): Boolean;
     function BuildLIB(const AOutputPath: string): Boolean;
@@ -713,6 +727,9 @@ begin
   if not CompileFile(FMainSourceFile) then
     Exit;
 
+  // Process version info directives
+  ProcessVersionInfoDirectives();
+
   LOutputType := GetOutputTypeFromAST();
   LOutputDir := GetOutputPath();
 
@@ -978,6 +995,137 @@ begin
   end;
 end;
 
+procedure TPaxCompiler.ProcessVersionInfoDirectives();
+var
+  LI: Integer;
+  LChild: PASTNode;
+  LName: string;
+  LValue: string;
+  LIntValue: Integer;
+begin
+  // Reset to defaults
+  FAddVersionInfo := False;
+  FVIMajor := 0;
+  FVIMinor := 0;
+  FVIPatch := 0;
+  FVIProductName := '';
+  FVIDescription := '';
+  FVIFilename := '';
+  FVICompanyName := '';
+  FVICopyright := '';
+  FExeIcon := '';
+
+  if FASTRoot = nil then
+    Exit;
+
+  for LI := 0 to GetASTChildCount(FASTRoot) - 1 do
+  begin
+    LChild := GetASTChild(FASTRoot, LI);
+    if LChild^.Kind = nkDirective then
+    begin
+      LName := LowerCase(LChild^.NodeName);
+      LValue := LChild^.StrVal;
+
+      if LName = '#addverinfo' then
+        FAddVersionInfo := (LowerCase(LValue) = 'yes')
+      else if LName = '#vimajor' then
+      begin
+        if TryStrToInt(LValue, LIntValue) then
+          FVIMajor := Word(LIntValue);
+      end
+      else if LName = '#viminor' then
+      begin
+        if TryStrToInt(LValue, LIntValue) then
+          FVIMinor := Word(LIntValue);
+      end
+      else if LName = '#vipatch' then
+      begin
+        if TryStrToInt(LValue, LIntValue) then
+          FVIPatch := Word(LIntValue);
+      end
+      else if LName = '#viproductname' then
+        FVIProductName := LValue
+      else if LName = '#videscription' then
+        FVIDescription := LValue
+      else if LName = '#vifilename' then
+        FVIFilename := LValue
+      else if LName = '#vicompanyname' then
+        FVICompanyName := LValue
+      else if LName = '#vicopyright' then
+        FVICopyright := LValue
+      else if LName = '#exeicon' then
+      begin
+        FExeIcon := LValue;
+        FExeIcon := FExeIcon.Replace('\', '/');
+      end;
+    end;
+  end;
+end;
+
+procedure TPaxCompiler.ApplyPostBuildResources(const AExePath: string);
+var
+  LIconPath: string;
+  LIsExe: Boolean;
+  LIsDll: Boolean;
+begin
+  LIsExe := AExePath.EndsWith('.exe', True);
+  LIsDll := AExePath.EndsWith('.dll', True);
+
+  // Only applies to EXE and DLL files
+  if not LIsExe and not LIsDll then
+    Exit;
+
+  // 1. Add manifest (EXE only)
+  if LIsExe then
+  begin
+    if TUtils.ResourceExist('EXE_MANIFEST') then
+    begin
+      if not TUtils.AddResManifestFromResource('EXE_MANIFEST', AExePath) then
+        FErrors.Add(esWarning, 'W980', 'Failed to add manifest to executable');
+    end;
+  end;
+
+  // 2. Add icon if specified (EXE only)
+  if LIsExe and (FExeIcon <> '') then
+  begin
+    try
+      LIconPath := FExeIcon;
+      // Resolve relative paths against source file directory
+      if not TPath.IsPathRooted(LIconPath) then
+        LIconPath := TPath.Combine(TPath.GetDirectoryName(FSourceFilename), LIconPath);
+
+      if TFile.Exists(LIconPath) then
+        TUtils.UpdateIconResource(AExePath, LIconPath)
+      else
+        FErrors.Add(esWarning, 'W982', Format('Icon file not found: %s', [LIconPath]));
+    except
+      on E: Exception do
+        FErrors.Add(esWarning, 'W981', Format('Failed to add icon: %s', [E.Message]));
+    end;
+  end;
+
+  // 3. Add version info if enabled (EXE and DLL)
+  if FAddVersionInfo then
+  begin
+    try
+      TUtils.UpdateVersionInfoResource(
+        AExePath,
+        FVIMajor,
+        FVIMinor,
+        FVIPatch,
+        FVIProductName,
+        FVIDescription,
+        FVIFilename,
+        FVICompanyName,
+        FVICopyright
+      );
+    except
+      on E: Exception do
+        FErrors.Add(esWarning, 'W983', Format('Failed to add version info: %s', [E.Message]));
+    end;
+  end;
+end;
+
 function TPaxCompiler.CompileImportedModules(): Boolean;
 var
   LPair: TPair<string, TModuleInfo>;
@@ -1111,6 +1259,9 @@ begin
     Exit;
   end;
 
+  // Apply post-build resources (manifest, icon, version info)
+  ApplyPostBuildResources(AOutputPath);
+
   Result := True;
 end;
 
@@ -1179,6 +1330,9 @@ begin
     FErrors.Add(esFatal, 'E933', Format('Failed to write DLL: %s', [AOutputPath]));
     Exit;
   end;
+
+  // Apply post-build resources (version info only for DLLs)
+  ApplyPostBuildResources(AOutputPath);
 
   Result := True;
 end;

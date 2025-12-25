@@ -230,7 +230,9 @@ type
     procedure ScanNumber();
     procedure ScanHexNumber();
     procedure ScanString();
+    procedure ScanRawString();
     procedure ScanWideStringOrChar();
+    procedure ScanRawWideString();
     procedure ScanDirective();
 
     // Token creation
@@ -823,6 +825,17 @@ begin
   else if LChar = '''' then
     ScanString()
 
+  // Raw string literal @'...'
+  else if LChar = '@' then
+  begin
+    if Peek() = '''' then
+      ScanRawString()
+    else if (Peek() = 'L') and (PeekNext() = '''') then
+      ScanRawWideString()
+    else
+      AddError(RSLexerUnexpectedChar, [LChar]);
+  end
+
   // Wide string/char with L prefix
   else if (LChar = 'L') and ((Peek() = '''') or (Peek() = '"')) then
     ScanWideStringOrChar()
@@ -1049,6 +1062,58 @@ begin
   end;
 end;
 
+procedure TPaxLexer.ScanRawString();
+var
+  LBuilder: TStringBuilder;
+  LChar: Char;
+  LValue: string;
+begin
+  // Already consumed '@', now consume the quote
+  Advance(); // consume '
+
+  LBuilder := TStringBuilder.Create();
+  try
+    while not IsAtEnd() do
+    begin
+      LChar := Peek();
+
+      if LChar = '''' then
+      begin
+        Advance(); // consume quote
+
+        // Check for escaped quote ''
+        if Peek() = '''' then
+        begin
+          LBuilder.Append('''');
+          Advance();
+        end
+        else
+        begin
+          // End of string
+          LValue := LBuilder.ToString();
+          AddTokenWithLexeme(tkString, LValue);
+          Exit;
+        end;
+      end
+      else if (LChar = CHAR_CR) or (LChar = CHAR_LF) then
+      begin
+        AddError(RSLexerUnterminatedString);
+        Exit;
+      end
+      else
+      begin
+        // Raw - no escape processing, just append character as-is
+        LBuilder.Append(LChar);
+        Advance();
+      end;
+    end;
+
+    AddError(RSLexerUnterminatedString);
+  finally
+    LBuilder.Free();
+  end;
+end;
+
 procedure TPaxLexer.ScanWideStringOrChar();
 var
   LBuilder: TStringBuilder;
@@ -1146,6 +1211,59 @@ begin
       end
       else
       begin
+        LBuilder.Append(LChar);
+        Advance();
+      end;
+    end;
+
+    AddError(RSLexerUnterminatedString);
+  finally
+    LBuilder.Free();
+  end;
+end;
+
+procedure TPaxLexer.ScanRawWideString();
+var
+  LBuilder: TStringBuilder;
+  LChar: Char;
+  LValue: string;
+begin
+  // Already consumed '@', now consume 'L' and quote
+  Advance(); // consume 'L'
+  Advance(); // consume '
+
+  LBuilder := TStringBuilder.Create();
+  try
+    while not IsAtEnd() do
+    begin
+      LChar := Peek();
+
+      if LChar = '''' then
+      begin
+        Advance(); // consume quote
+
+        // Check for escaped quote ''
+        if Peek() = '''' then
+        begin
+          LBuilder.Append('''');
+          Advance();
+        end
+        else
+        begin
+          // End of string
+          LValue := LBuilder.ToString();
+          AddTokenWithLexeme(tkWideString, LValue);
+          Exit;
+        end;
+      end
+      else if (LChar = CHAR_CR) or (LChar = CHAR_LF) then
+      begin
+        AddError(RSLexerUnterminatedString);
+        Exit;
+      end
+      else
+      begin
+        // Raw - no escape processing, just append character as-is
         LBuilder.Append(LChar);
         Advance();
       end;

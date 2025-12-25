@@ -76,6 +76,8 @@ resourcestring
   RSParserInvalidArrayBounds = 'Invalid array bounds';
   RSParserExpectedConsoleOrGui = 'Expected ''console'' or ''gui''';
   RSParserExpectedOnOrOff = 'Expected ''on'' or ''off''';
+  RSParserExpectedYesOrNo = 'Expected ''yes'' or ''no''';
+  RSParserExpectedString = 'Expected string';
   RSParserExpectedTestName = 'Expected test name string';
   RSParserExpectedSetRange = 'Expected integer for set range';
   RSParserExpectedInteger = 'Expected integer';

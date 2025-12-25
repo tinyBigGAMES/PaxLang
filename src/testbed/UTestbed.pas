@@ -76,7 +76,8 @@ begin
     //LCompiler.MainSourceFile := 'tests\test_exe_unittest.pax';
     //LCompiler.MainSourceFile := 'tests\test_lib_mathlib.pax';
     //LCompiler.MainSourceFile := 'tests\test_lib_mathlib_exe.pax';
-    LCompiler.MainSourceFile := 'tests\test_exe_case.pax';
+    //LCompiler.MainSourceFile := 'tests\test_exe_case.pax';
+    LCompiler.MainSourceFile := 'tests\test_exe_verinfo.pax';
 
     LCompiler.Build();
   finally

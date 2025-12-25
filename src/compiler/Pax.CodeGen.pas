@@ -126,6 +126,7 @@ type
 
     // Utility
     function EscapeString(const AStr: string): string;
+    function EscapeWideString(const AStr: string): string;
     function OperatorToC(const AOp: TOperator): string;
 
     // Type inference helpers
@@ -2299,7 +2300,7 @@ begin
       Result := '"' + EscapeString(ANode^.StrVal) + '"';
 
     nkWideStrLiteral:
-      Result := 'L"' + EscapeString(ANode^.StrVal) + '"';
+      Result := 'L"' + EscapeWideString(ANode^.StrVal) + '"';
 
     nkCharLiteral:
       begin
@@ -2312,7 +2313,7 @@ begin
     nkWideCharLiteral:
       begin
         if Length(ANode^.StrVal) > 0 then
-          Result := 'L''' + EscapeString(ANode^.StrVal) + ''''
+          Result := 'L''' + EscapeWideString(ANode^.StrVal) + ''''
         else
           Result := 'L''\0''';
       end;
@@ -2393,6 +2394,61 @@ begin
             $80 or (Ord(LChar) and $3F)
           ]);
         end;
+      end;
+    end;
+
+    Inc(LI);
+  end;
+end;
+
+function TPaxCodeGen.EscapeWideString(const AStr: string): string;
+var
+  LI: Integer;
+  LChar: Char;
+  LCodePoint: UInt32;
+  LHighSurrogate: Word;
+  LLowSurrogate: Word;
+begin
+  Result := '';
+
+  LI := 1;
+  while LI <= Length(AStr) do
+  begin
+    LChar := AStr[LI];
+
+    case LChar of
+      #0:  Result := Result + '\0';
+      #9:  Result := Result + '\t';
+      #10: Result := Result + '\n';
+      #13: Result := Result + '\r';
+      '"': Result := Result + '\"';
+      '\': Result := Result + '\\';
+      '''': Result := Result + '\''';
+    else
+      if Ord(LChar) < 128 then
+        // ASCII printable
+        Result := Result + LChar
+      else if (Ord(LChar) >= $D800) and (Ord(LChar) <= $DBFF) then
+      begin
+        // UTF-16 high surrogate - combine with next char to get code point
+        if (LI < Length(AStr)) then
+        begin
+          LCodePoint := $10000 + ((Ord(LChar) - $D800) shl 10) + (Ord(AStr[LI + 1]) - $DC00);
+          // Emit as surrogate pair using \u escapes
+          LHighSurrogate := $D800 + ((LCodePoint - $10000) shr 10);
+          LLowSurrogate := $DC00 + ((LCodePoint - $10000) and $3FF);
+          Result := Result + Format('\u%04X\u%04X', [LHighSurrogate, LLowSurrogate]);
+          Inc(LI); // Skip the low surrogate
+        end;
+      end
+      else if (Ord(LChar) >= $DC00) and (Ord(LChar) <= $DFFF) then
+      begin
+        // Low surrogate without high - should not happen, skip
+      end
+      else
+      begin
+        // BMP character (U+0080 to U+FFFF, excluding surrogates)
+        Result := Result + Format('\u%04X', [Ord(LChar)]);
       end;
     end;
 

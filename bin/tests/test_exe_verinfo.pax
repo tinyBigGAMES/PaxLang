@@ -1,0 +1,49 @@
+module exe test_exe_verinfo;
+
+// Version info directives - these inject metadata into the built EXE
+#addverinfo yes
+#vimajor 1
+#viminor 2
+#vipatch 3
+#viproductname 'Pax Version Info Test'
+#videscription 'Test executable for version info directives'
+#vifilename 'test_exe_verinfo.exe'
+#vicompanyname 'tinyBigGAMES LLC'
+#vicopyright 'Copyright © 2025 tinyBigGAMES LLC'
+
+// Icon embedding - use raw string @'...' to avoid escape processing
+#exeicon @'..\res\pax.ico'
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+routine MessageBoxW(const hWnd: uint64; const lpText: pointer to wchar; const lpCaption: pointer to wchar; const uType: uint32): int32; external 'user32.dll';
+
+const
+  MB_OK = 0;
+  MB_ICONINFORMATION = $40;
+
+begin
+  printf('=== Version Info Test ===\n');
+  printf('\n');
+  printf('This executable should have embedded version info.\n');
+  printf('Right-click the .exe file and select Properties,\n');
+  printf('then check the Details tab to verify:\n');
+  printf('\n');
+  printf('  Product name:     Pax Version Info Test\n');
+  printf('  File description: Test executable for version info directives\n');
+  printf('  File version:     1.2.3.0\n');
+  printf('  Product version:  1.2.3.0\n');
+  printf('  Company:          tinyBigGAMES LLC\n');
+  printf('  Copyright:        Copyright (c) 2025 tinyBigGAMES LLC\n');
+  printf('\n');
+  printf('The executable should also have an embedded manifest\n');
+  printf('enabling modern Windows visual styles and DPI awareness.\n');
+  printf('\n');
+  
+  // Show MessageBox to validate manifest is working
+  // With manifest: modern styled buttons (rounded, themed)
+  // Without manifest: old Windows 95-style flat buttons
+  // Emojis validate UTF-16 surrogate pair handling
+  MessageBoxW(0, L'🎉 Success! 🚀\n\nIf this dialog has modern styled buttons, the manifest is working correctly!\n\n✅ Version info embedded\n✅ Manifest applied\n✅ UTF-16 emojis working 🎨🔥💯', L'🎮 Manifest Test ✨', MB_OK + MB_ICONINFORMATION);
+  
+  printf('Test completed successfully!\n');
+end.

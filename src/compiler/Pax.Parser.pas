@@ -600,6 +600,41 @@ begin
       Advance();
     end;
   end
+  else if (LLower = '#addverinfo') then
+  begin
+    // Expects: yes | no
+    if Check(tkIdentifier) then
+    begin
+      Result := FCurrentToken.Lexeme;
+      Advance();
+    end
+    else
+      Error(RSParserExpectedYesOrNo);
+  end
+  else if (LLower = '#vimajor') or (LLower = '#viminor') or (LLower = '#vipatch') then
+  begin
+    // Expects: integer
+    if Check(tkInteger) then
+    begin
+      Result := FCurrentToken.Lexeme;
+      Advance();
+    end
+    else
+      Error(RSParserExpectedInteger);
+  end
+  else if (LLower = '#viproductname') or (LLower = '#videscription') or
+         (LLower = '#vifilename') or (LLower = '#vicompanyname') or
+         (LLower = '#vicopyright') or (LLower = '#exeicon') then
+  begin
+    // Expects: string
+    if Check(tkString) then
+    begin
+      Result := FCurrentToken.Lexeme;
+      Advance();
+    end
+    else
+      Error(RSParserExpectedString);
+  end
   else
   begin
     // String value directives: #modulepath, #includepath, #librarypath, #library, #addfile, #option
