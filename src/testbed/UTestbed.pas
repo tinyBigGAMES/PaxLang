@@ -140,8 +140,7 @@ procedure TestFiles();
 var
   LNum: Integer;
 begin
-  LNum := 28;
-  //LNum := 1;
+  LNum := 31;
 
   case LNum of
     // STANDALONE EXE TESTS (no dependencies, any order)
@@ -175,20 +174,21 @@ begin
     28: TestFile('test_exe_directives');
     29: TestFile('test_exe_type_alias');
     30: TestFile('test_exe_edge_cases');
+    31: TestFile('test_exe_gui');
 
     // ERROR TESTS
-    31: TestFile('test_exe_aligned_error');
-    32: TestFile('test_exe_badtest');
+    32: TestFile('test_exe_aligned_error');
+    33: TestFile('test_exe_badtest');
 
     // LIB TESTS (lib auto-compiles when EXE imports it)
-    33: TestFile('test_exe_imports');
-    34: TestFile('test_lib_math');
-    35: TestFile('test_lib_math_exe');
-    36: TestFile('test_exe_unittest');
+    34: TestFile('test_exe_imports');
+    35: TestFile('test_lib_math');
+    36: TestFile('test_lib_math_exe');
+    37: TestFile('test_exe_unittest');
 
     // DLL TESTS (must build DLL first, then EXE)
-    37: TestFile('test_dll_strings');      // Step 1: Build DLL
-    38: TestFile('test_dll_strings_exe');  // Step 2: Build EXE
+    38: TestFile('test_dll_strings');      // Step 1: Build DLL
+    39: TestFile('test_dll_strings_exe');  // Step 2: Build EXE
   end;
 end;
 

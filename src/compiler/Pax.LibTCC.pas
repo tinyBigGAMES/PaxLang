@@ -524,7 +524,7 @@ function TLibTCC.SetSubsystem(const ASubsystem: TLibTCCSubsystem): Boolean;
 const
   CSubsystemOptions: array[TLibTCCSubsystem] of string = (
     '-Wl,-subsystem=console',
-    '-Wl,-subsystem=gui'
+    '-Wl,-subsystem=windows'
   );
 begin
   Result := False;

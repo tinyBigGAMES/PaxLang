@@ -1,0 +1,9 @@
+module exe test_exe_gui;
+
+#subsystem gui
+
+routine MessageBoxA(const hwnd: pointer; const lpText: pointer to char; const lpCaption: pointer to char; const uType: uint32): int32; external 'user32.dll';
+
+begin
+  MessageBoxA(nil, 'Hello from Pax!', 'GUI Test', 0);
+end.

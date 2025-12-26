@@ -74,6 +74,7 @@ resourcestring
   RSParserExpectedModuleKind = 'Expected module kind: exe, dll, or lib';
   RSParserMissingModuleEnd = 'Missing ''end.'' at end of module';
   RSParserInvalidArrayBounds = 'Invalid array bounds';
+  RSParserNegativeArrayBounds = 'Negative array bounds are not supported';
   RSParserExpectedConsoleOrGui = 'Expected ''console'' or ''gui''';
   RSParserExpectedOnOrOff = 'Expected ''on'' or ''off''';
   RSParserExpectedYesOrNo = 'Expected ''yes'' or ''no''';

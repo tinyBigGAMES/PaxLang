@@ -293,6 +293,7 @@ begin
 
   FCodeGen.Clear();
   FModuleName := '';
+  FSubsystem := ssConsole;
   FUnitTestMode := False;
   FDebugMode := False;
   FTCCOptions.Clear();
@@ -324,6 +325,7 @@ var
   LName: string;
   LValue: string;
   LIntValue: Integer;
+  LModuleKindStr: string;
 begin
   if FASTRoot = nil then
     Exit;
@@ -349,8 +351,13 @@ begin
         FGeneratedPath := LValue
       else if LName = '#subsystem' then
       begin
-        // Validate: #subsystem only valid for EXE modules
-        if (FASTRoot^.StrVal <> '') and (LowerCase(FASTRoot^.StrVal) <> 'exe') then
+        // Get module kind (strip quotes if present)
+        LModuleKindStr := FASTRoot^.StrVal;
+        if (Length(LModuleKindStr) >= 2) and (LModuleKindStr[1] = '''') then
+          LModuleKindStr := Copy(LModuleKindStr, 2, Length(LModuleKindStr) - 2);
+
+        // Validate: #subsystem only valid for EXE modules (empty defaults to exe)
+        if (LModuleKindStr <> '') and (LowerCase(LModuleKindStr) <> 'exe') then
           FErrors.Add(LChild^.Token.Range, esError, 'E080', '#subsystem directive is only valid for EXE modules')
         else if LowerCase(LValue) = 'gui' then
           FSubsystem := ssGUI

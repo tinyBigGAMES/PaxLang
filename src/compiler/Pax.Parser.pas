@@ -1246,6 +1246,21 @@ begin
   // Optional bounds
   if Match(tkLBracket) then
   begin
+    // Check for negative bounds (not supported)
+    if Check(tkMinus) then
+    begin
+      Error(RSParserNegativeArrayBounds);
+      // Skip to closing bracket to recover
+      while not Check(tkRBracket) and not IsAtEnd() do
+        Advance();
+      Match(tkRBracket);
+      Expect(tkOf);
+      LElementType := ParseTypeName();
+      if LElementType <> nil then
+        AddASTChild(Result, LElementType);
+      Exit;
+    end;
+
     if Check(tkInteger) then
     begin
       // Static array bounds

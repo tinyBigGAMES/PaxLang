@@ -79,14 +79,16 @@ begin
   p := nil;
   if p = nil then
     printf('  Untyped pointer p is nil\n');
+  end;
   
   // Assign address to untyped pointer
   intVal := 42;
-  p := @intVal;
+  p := address of intVal;
   printf('  p now points to intVal\n');
   
   if p <> nil then
     printf('  Untyped pointer p is not nil\n');
+  end;
   
   // Test 5: Cast untyped to typed pointer
   printf('\nTest 5: Cast untyped to typed pointer\n');
@@ -95,8 +97,9 @@ begin
   
   // Test 6: Pointer comparisons
   printf('\nTest 6: Pointer comparisons\n');
-  if p = @intVal then
+  if p = address of intVal then
     printf('  p equals address of intVal\n');
+  end;
   
   // Test 7: sizeof with type aliases
   printf('\nTest 7: sizeof with type aliases\n');
