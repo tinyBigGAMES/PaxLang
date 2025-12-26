@@ -11,7 +11,7 @@ A minimal systems programming language that compiles to native executables via C
 
 ## What is Pax?
 
-The **Pax™ Programming Language** is a Pascal/Oberon-inspired systems programming language targeting Win64. It compiles to C via [TinyCC](https://github.com/TinyCC/tinycc) with a completely self-contained toolchain — no external dependencies required. Memory is automatically managed via the [Boehm-Demers-Weiser Garbage Collector](https://github.com/bdwgc/bdwgc).
+The **Pax Programming Language** is a Pascal/Oberon-inspired systems programming language targeting Win64. It compiles to C via [TinyCC](https://github.com/TinyCC/tinycc) with a completely self-contained toolchain - no external dependencies required. Memory is automatically managed via the [Boehm-Demers-Weiser Garbage Collector](https://github.com/bdwgc/bdwgc).
 
 ```pax
 module exe HelloWorld;
@@ -28,44 +28,96 @@ begin
 end.
 ```
 
-## ✨ Key Features
+## Key Features
 
-- ✨ **Minimal by design** — Clean syntax, no redundancy, just what you need
-- 🔤 **Pascal heritage** — Readable, structured code inspired by Pascal and Oberon
-- 🧠 **Automatic memory** — Boehm GC handles allocation and cleanup
-- 📦 **Self-contained** — Embedded TinyCC toolchain, single executable distribution
-- 🔗 **Windows native** — Call any DLL directly, full Windows API access
-- 🏗️ **Multiple outputs** — Build executables, DLLs, or static libraries
-- 🧬 **Type extension** — Record inheritance without class complexity
-- 🔀 **Union types** — C-compatible unions with anonymous nesting
-- 📊 **Dynamic arrays** — `setlength`/`len` with automatic memory management
-- 🛡️ **Managed strings** — UTF-8 and UTF-16 string types with emoji support
-- ⚡ **Varargs support** — Full C interop with printf-style functions
-- 🧪 **Built-in testing** — Integrated unit test framework
-- 📋 **Version info** — Embed metadata and icons in executables
+- **Minimal by design** - Clean syntax, no redundancy, just what you need
+- **Pascal heritage** - Readable, structured code inspired by Pascal and Oberon
+- **Automatic memory** - Boehm GC handles allocation and cleanup
+- **Self-contained** - Embedded TinyCC toolchain, single executable distribution
+- **Windows native** - Call any DLL directly, full Windows API access
+- **Multiple outputs** - Build executables, DLLs, or static libraries
+- **Type extension** - Record inheritance without class complexity
+- **Union types** - C-compatible unions with anonymous nesting
+- **Dynamic arrays** - setlength/len with automatic memory management
+- **Managed strings** - UTF-8 and UTF-16 string types with emoji support
+- **Varargs support** - Full C interop with printf-style functions
+- **Built-in testing** - Integrated unit test framework
+- **Version info** - Embed metadata and icons in executables
 
-## 📖 Language Overview
+## Language Overview
 
 ### Built-in Types
 
 | Type | Size | Description |
 |------|------|-------------|
-| `int8`, `int16`, `int32`, `int64` | 1-8 bytes | Signed integers |
-| `uint8`, `uint16`, `uint32`, `uint64` | 1-8 bytes | Unsigned integers |
-| `float32`, `float64` | 4-8 bytes | Floating point |
-| `boolean` | 1 byte | `true` / `false` |
-| `char`, `uchar` | 1 byte | Signed/unsigned characters |
-| `wchar`, `uwchar` | 2 bytes | Wide characters (UTF-16) |
-| `string`, `wstring` | 8 bytes | Managed strings (UTF-8 / UTF-16) |
-| `pointer`, `pointer to T` | 8 bytes | Untyped / typed pointers |
+| int8, int16, int32, int64 | 1-8 bytes | Signed integers |
+| uint8, uint16, uint32, uint64 | 1-8 bytes | Unsigned integers |
+| float32, float64 | 4-8 bytes | Floating point |
+| boolean | 1 byte | true / false |
+| char, uchar | 1 byte | Signed/unsigned characters |
+| wchar, uwchar | 2 bytes | Wide characters (UTF-16) |
+| string, wstring | 8 bytes | Managed strings (UTF-8 / UTF-16) |
+| pointer, pointer to T | 8 bytes | Untyped / typed pointers |
 
 ### Module Types
 
 | Type | Description |
 |------|-------------|
-| `module exe Name` | Executable program |
-| `module lib Name` | Static library (.a) |
-| `module dll Name` | Dynamic library (.dll) |
+| module exe Name | Executable program |
+| module lib Name | Static library (.a) |
+| module dll Name | Dynamic library (.dll) |
+
+### Operators
+
+#### Arithmetic and Comparison
+```pax
++ - * /           // Arithmetic
+div mod           // Integer division and modulo
+= <> < > <= >=    // Comparison
+and or not        // Logical
+in                // Set membership
+```
+
+#### Compound Assignment
+```pax
+var
+  n: int32;
+  s: string;
+  days: set of 0..6;
+
+begin
+  n := 10;
+  n += 5;         // n = n + 5
+  n -= 3;         // n = n - 3
+  n *= 2;         // n = n * 2
+  n /= 4;         // n = n / 4 (integer division)
+  
+  s := 'Hello';
+  s += ' World';  // String concatenation
+  
+  days := {1, 2};
+  days += {3};    // Set union
+  days -= {1};    // Set difference
+end.
+```
+
+### Type Aliases
+
+```pax
+type
+  THandle = uint64;
+  TSize = int64;
+  TFileHandle = THandle;  // Alias of alias
+  
+var
+  h: THandle;
+  fh: TFileHandle;
+
+begin
+  h := 12345;
+  fh := h;        // Compatible assignment
+end.
+```
 
 ### Records and Extension
 
@@ -160,15 +212,116 @@ type
 
 var
   weekdays: TDays;
+  weekend: TDays;
+  alldays: TDays;
   today: int32;
 
 begin
   weekdays := {1, 2, 3, 4, 5};  // Mon-Fri
-  today := 3;
+  weekend := {0, 6};            // Sun, Sat
   
+  alldays := weekdays + weekend; // Union
+  weekdays := alldays - weekend; // Difference
+  
+  today := 3;
   if today in weekdays then
     // It's a weekday
   end;
+end.
+```
+
+### Control Flow
+
+```pax
+var
+  i: int32;
+  sum: int32;
+  n: int32;
+  ch: char;
+
+begin
+  // If-then-else
+  if n > 10 then
+    sum := 1;
+  else
+    sum := 0;
+  end;
+  
+  // While loop
+  while i < 10 do
+    i := i + 1;
+  end;
+  
+  // For loop (ascending)
+  for i := 1 to 10 do
+    sum := sum + i;
+  end;
+  
+  // For loop (descending)
+  for i := 10 downto 1 do
+    sum := sum + i;
+  end;
+  
+  // Repeat-until
+  repeat
+    i := i + 1;
+  until i >= 10;
+  
+  // Case statement with ranges
+  case n of
+    0: sum := 0;
+    1..10: sum := 1;
+    11..100: sum := 2;
+  else
+    sum := -1;
+  end;
+  
+  // Case with character ranges
+  case ch of
+    'a'..'z': sum := 1;
+    'A'..'Z': sum := 2;
+    '0'..'9': sum := 3;
+  else
+    sum := 0;
+  end;
+end.
+```
+
+### Routine Types (Function Pointers)
+
+```pax
+type
+  TIntFunc = routine(const a: int32; const b: int32): int32;
+  TCallback = routine(const x: int32): int32;
+
+routine Add(const a: int32; const b: int32): int32;
+begin
+  return a + b;
+end;
+
+routine Multiply(const a: int32; const b: int32): int32;
+begin
+  return a * b;
+end;
+
+// Higher-order function
+routine Apply(const fn: TIntFunc; const x: int32; const y: int32): int32;
+begin
+  return fn(x, y);
+end;
+
+var
+  mathOp: TIntFunc;
+  result: int32;
+
+begin
+  mathOp := Add;
+  result := mathOp(10, 5);     // 15
+  
+  mathOp := Multiply;
+  result := mathOp(10, 5);     // 50
+  
+  result := Apply(Add, 3, 4);  // 7
 end.
 ```
 
@@ -187,16 +340,34 @@ begin
   path := @'C:\Users\Name\file.txt';
   
   // Wide strings for Windows API (UTF-16)
-  msg := L'Hello 🌍 World! 🎉';
+  msg := L'Hello World!';
   
   // Raw wide strings
   msg := @L'C:\Path\To\File';
 end.
 ```
 
+### Pointers and Const Pointers
+
+```pax
+routine wprintf(const fmt: pointer to const wchar; ...): int32; external 'msvcrt.dll';
+
+var
+  value: int32;
+  ptr: pointer to int32;
+  constPtr: pointer to const char;
+
+begin
+  value := 42;
+  ptr := address of value;  // Get pointer to value
+  ptr^ := 100;              // Dereference and assign
+  // value is now 100
+end.
+```
+
 ### External Routines
 
-Call Windows DLL functions with simple declarations — no binding libraries required:
+Call Windows DLL functions with simple declarations - no binding libraries required:
 
 ```pax
 module exe WinAPI;
@@ -205,13 +376,13 @@ routine MessageBoxW(hwnd: pointer; text: pointer to wchar;
   caption: pointer to wchar; utype: uint32): int32; external 'user32.dll';
 
 begin
-  MessageBoxW(nil, L'Hello from Pax! 🚀', L'Pax', 0);
+  MessageBoxW(nil, L'Hello from Pax!', L'Pax', 0);
 end.
 ```
 
 ### Linking Libraries
 
-For custom DLLs or when linking multiple functions from the same library, use `#library`:
+For custom DLLs or when linking multiple functions from the same library, use #library:
 
 ```pax
 module exe CustomDLL;
@@ -224,21 +395,6 @@ routine MyOtherFunction(const msg: pointer to char); external;
 
 begin
   MyOtherFunction('Hello');
-end.
-```
-
-### Pointers and Address-Of
-
-```pax
-var
-  value: int32;
-  ptr: pointer to int32;
-
-begin
-  value := 42;
-  ptr := address of value;  // Get pointer to value
-  ptr^ := 100;              // Dereference and assign
-  // value is now 100
 end.
 ```
 
@@ -276,6 +432,51 @@ begin
 end.
 ```
 
+### Conditional Compilation
+
+```pax
+#define DEBUG
+#define VERSION 100
+
+begin
+  #ifdef DEBUG
+  printf('Debug mode enabled\n');
+  #endif
+  
+  #ifndef RELEASE
+  printf('Not a release build\n');
+  #endif
+  
+  #if VERSION >= 100
+  printf('Version 100 or higher\n');
+  #elif VERSION >= 50
+  printf('Version 50-99\n');
+  #else
+  printf('Old version\n');
+  #endif
+  
+  #undef DEBUG
+end.
+```
+
+### PAX Compiler Constants
+
+```pax
+begin
+  // Available as both preprocessor macros and runtime constants
+  printf('Pax version: %s\n', PAX_VERSION_STR);
+  printf('Major: %d\n', PAX_MAJOR_VERSION);
+  printf('Minor: %d\n', PAX_MINOR_VERSION);
+  printf('Patch: %d\n', PAX_PATCH_VERSION);
+  printf('Combined: %d\n', PAX_VERSION);
+  
+  // Preprocessor detection
+  #ifdef PAX
+  printf('Compiled with Pax\n');
+  #endif
+end.
+```
+
 ### Unit Testing
 
 ```pax
@@ -283,24 +484,38 @@ module exe MyTests;
 
 #unittestmode on
 
-routine add(const a: int32; const b: int32): int32;
+routine Add(const a: int32; const b: int32): int32;
 begin
   return a + b;
+end;
+
+routine IsPositive(const a: int32): boolean;
+begin
+  return a > 0;
 end;
 
 begin
   // Normal entry point (skipped in test mode)
 end.
 
-test 'add returns correct sum';
+test 'Addition works correctly'
 begin
-  assert(add(2, 3) = 5);
-  assert(add(-1, 1) = 0);
+  TestAssertEqualInt(5, Add(2, 3));
+  TestAssertEqualInt(0, Add(-1, 1));
 end;
 
-test 'add handles negative numbers';
+test 'Boolean assertions'
 begin
-  assert(add(-5, -3) = -8);
+  TestAssertTrue(IsPositive(5));
+  TestAssertFalse(IsPositive(-5));
+end;
+
+test 'Pointer assertions'
+var
+  p: pointer;
+begin
+  p := nil;
+  TestAssertNil(p);
 end;
 ```
 
@@ -317,7 +532,7 @@ module exe MyApp;
 #viproductname 'My Application'
 #videscription 'A sample Pax application'
 #vicompanyname 'My Company'
-#vicopyright 'Copyright © 2025'
+#vicopyright 'Copyright 2025'
 #exeicon @'assets\app.ico'
 
 begin
@@ -325,104 +540,110 @@ begin
 end.
 ```
 
-## 🔧 Directives Reference
+## Directives Reference
 
 ### Build Directives
 
 | Directive | Description |
 |-----------|-------------|
-| `#subsystem console\|gui` | PE subsystem (default: console) |
-| `#library "name"` | Link a library |
-| `#librarypath "path"` | Add library search path |
-| `#includepath "path"` | Add C include path |
-| `#addfile "file"` | Add .c, .obj, .lib, .dll to link |
-| `#modulepath "path"` | Add module search path |
-| `#outputpath "path"` | Set output directory |
-| `#generatedpath "path"` | Set generated C files directory |
+| #subsystem console/gui | PE subsystem (default: console) |
+| #library "name" | Link a library |
+| #librarypath "path" | Add library search path |
+| #includepath "path" | Add C include path |
+| #addfile "file" | Add .c, .obj, .lib, .dll to link |
+| #modulepath "path" | Add module search path |
+| #outputpath "path" | Set output directory |
+| #generatedpath "path" | Set generated C files directory |
 
 ### Preprocessor Directives
 
 | Directive | Description |
 |-----------|-------------|
-| `#define SYM [value]` | Define preprocessor symbol |
-| `#undef SYM` | Undefine symbol |
-| `#ifdef SYM` | Conditional if defined |
-| `#ifndef SYM` | Conditional if not defined |
-| `#if expr` | Conditional expression |
-| `#elif expr` | Else if |
-| `#else` | Else branch |
-| `#endif` | End conditional |
+| #define SYM [value] | Define preprocessor symbol |
+| #undef SYM | Undefine symbol |
+| #ifdef SYM | Conditional if defined |
+| #ifndef SYM | Conditional if not defined |
+| #if expr | Conditional expression |
+| #elif expr | Else if |
+| #else | Else branch |
+| #endif | End conditional |
 
 ### Compiler Directives
 
 | Directive | Description |
 |-----------|-------------|
-| `#debug on\|off` | Enable debug info |
-| `#unittestmode on\|off` | Enable unit test mode |
-| `#maxerrors N` | Max errors before stopping |
-| `#option "flag"` | Pass raw TCC option |
+| #debug | Enable debug info (STABS format) |
+| #unittestmode on/off | Enable unit test mode |
+| #maxerrors N | Max errors before stopping |
+| #option "flag" | Pass raw TCC option |
 
 ### Version Info Directives
 
 | Directive | Description |
 |-----------|-------------|
-| `#addverinfo yes\|no` | Enable version info embedding |
-| `#vimajor N` | Major version number |
-| `#viminor N` | Minor version number |
-| `#vipatch N` | Patch version number |
-| `#viproductname "name"` | Product name |
-| `#videscription "desc"` | File description |
-| `#vifilename "name"` | Original filename |
-| `#vicompanyname "name"` | Company name |
-| `#vicopyright "text"` | Copyright notice |
-| `#exeicon "path"` | Executable icon |
+| #addverinfo yes/no | Enable version info embedding |
+| #vimajor N | Major version number |
+| #viminor N | Minor version number |
+| #vipatch N | Patch version number |
+| #viproductname "name" | Product name |
+| #videscription "desc" | File description |
+| #vifilename "name" | Original filename |
+| #vicompanyname "name" | Company name |
+| #vicopyright "text" | Copyright notice |
+| #exeicon "path" | Executable icon |
 
-## 🏗️ Architecture
+## Architecture
 
 The compiler is built in Delphi with a clean pipeline architecture:
 
 | Unit | Purpose |
 |------|---------|
-| `Pax.Lexer` | Tokenization with full Unicode support |
-| `Pax.AST` | Abstract syntax tree node definitions |
-| `Pax.Parser` | Recursive descent parser with error recovery |
-| `Pax.Types` | Type registry and type system management |
-| `Pax.Symbols` | Symbol table with scope management |
-| `Pax.Checker` | Semantic analysis and type checking |
-| `Pax.CodeGen` | C99 code generation |
-| `Pax.Compiler` | Build orchestration and TinyCC integration |
+| Pax.Lexer | Tokenization with full Unicode support |
+| Pax.AST | Abstract syntax tree node definitions |
+| Pax.Parser | Recursive descent parser with error recovery |
+| Pax.Types | Type registry and type system management |
+| Pax.Symbols | Symbol table with scope management |
+| Pax.Checker | Semantic analysis and type checking |
+| Pax.CodeGen | C99 code generation |
+| Pax.Compiler | Build orchestration and TinyCC integration |
 
 ### Additional Components
 
 | Unit | Purpose |
 |------|---------|
-| `Pax.ArArchive` | Native AR archive creation for static libraries |
-| `Pax.ZipVFS` | Virtual file system for embedded toolchain |
-| `Pax.IATHook` | IAT hooking for transparent file redirection |
-| `Pax.LibTCC` | TinyCC (libtcc) integration |
-| `Pax.ModuleLoader` | Module dependency resolution |
+| Pax.ArArchive | Native AR archive creation for static libraries |
+| Pax.ZipVFS | Virtual file system for embedded toolchain |
+| Pax.IATHook | IAT hooking for transparent file redirection |
+| Pax.LibTCC | TinyCC (libtcc) integration |
+| Pax.ModuleLoader | Module dependency resolution |
 
-## 🚧 Status
+## Status
 
-**Version 0.1.0 — Under active development.**
+**Under active development.**
 
 The core compiler is functional and can produce working executables, DLLs, and static libraries. All major language features are implemented:
 
-- ✅ Records with inheritance
-- ✅ Unions (named and anonymous)
-- ✅ Packed records and alignment
-- ✅ Bit fields
-- ✅ Dynamic arrays
-- ✅ Sets with ranges
-- ✅ Managed strings (UTF-8/UTF-16)
-- ✅ External DLL calls with varargs
-- ✅ Module system with imports
-- ✅ Unit testing framework
-- ✅ GC intrinsics
-- ✅ Version info embedding
-- ✅ Icon embedding
+- Records with inheritance
+- Unions (named and anonymous)
+- Packed records and alignment
+- Bit fields
+- Dynamic arrays
+- Sets with ranges and operations
+- Managed strings (UTF-8/UTF-16)
+- External DLL calls with varargs
+- Module system with imports
+- Unit testing framework
+- GC intrinsics
+- Version info embedding
+- Icon embedding
+- Type aliases
+- Routine types (function pointers)
+- Compound assignment operators
+- Case statement ranges
+- Conditional compilation
+- PAX compiler constants
 
-## 🛠️ Building
+## Building
 
 ### Get the Source
 
@@ -435,29 +656,29 @@ git clone https://github.com/tinyBigGAMES/PaxLang.git
 
 ### Compile
 
-1. Open `src\Pax Programming Language.groupproj` in Delphi
+1. Open src\Pax Programming Language.groupproj in Delphi
 2. Build the project
 
-That's it! Everything is included — TinyCC, Boehm GC, and runtime resources are already bundled in the repo. The compiled executable will be output to the `bin` folder.
+That's it! Everything is included - TinyCC, Boehm GC, and runtime resources are already bundled in the repo. The compiled executable will be output to the bin folder.
 
-## 📋 Requirements
+## Requirements
 
 | | Minimum | Tested |
 |---|---------|--------|
 | **Platform** | Windows 10 x64 | Windows 11 25H2 x64 |
 | **Build** | Delphi 11 (Alexandria) | Delphi 12 (Athens) |
 
-**Dependencies:** None for end users — TinyCC and Boehm GC are embedded.
+**Dependencies:** None for end users - TinyCC and Boehm GC are embedded.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Join our [Discord](https://discord.gg/tPWjMwK) to discuss development.
 
-## 📄 License
+## License
 
 Pax is licensed under the **Apache License 2.0**. See [LICENSE](https://github.com/tinyBigGAMES/PaxLang/tree/main?tab=License-1-ov-file#readme) for details.
 
-## 🔗 Links
+## Links
 
 - [Discord](https://discord.gg/tPWjMwK)
 - [Bluesky](https://bsky.app/profile/tinybiggames.com)
@@ -469,7 +690,7 @@ Pax is licensed under the **Apache License 2.0**. See [LICENSE](https://github.c
 
 **Pax**™ Programming Language.
 
-Copyright © 2025-present tinyBigGAMES™ LLC.  
+Copyright © 2025-present tinyBigGAMES™ LLC  
 All Rights Reserved.
 
 </div>
