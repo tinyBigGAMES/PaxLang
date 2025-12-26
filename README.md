@@ -510,12 +510,17 @@ begin
   TestAssertFalse(IsPositive(-5));
 end;
 
-test 'Pointer assertions'
+test 'Pointer and allocation assertions'
 var
-  p: pointer;
+  p: pointer to int32;
 begin
   p := nil;
   TestAssertNil(p);
+  
+  new(p);
+  TestAssertNotNil(p);
+  p^ := 42;
+  TestAssertEqualInt(42, p^);
 end;
 ```
 

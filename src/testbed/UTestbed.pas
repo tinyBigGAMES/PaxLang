@@ -47,70 +47,6 @@ begin
   end;
 end;
 
-procedure Test01();
-var
-  LCompiler: TPaxCompiler;
-begin
-  LCompiler := TPaxCompiler.Create();
-  try
-    LCompiler.AddModuleSearchPath('tests');
-
-    LCompiler.Verbose := True;
-    LCompiler.MaxErrors := 1;
-    LCompiler.OutputPath := 'output';
-
-    // =========================================================================
-    // STANDALONE EXE TESTS (no dependencies, any order)
-    // =========================================================================
-    //LCompiler.MainSourceFile := 'tests\test_exe_hello.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_expressions.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_control_flow.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_case.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_records.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_record_arrays.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_packed_records.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_unions.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_anonymous.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_aligned.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_bitfields.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_arrays.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_pointers.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_routines.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_sets.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_types.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_constants.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_emoji.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_unittest.pax';
-    LCompiler.MainSourceFile := 'tests\test_exe_verinfo.pax';
-
-    // =========================================================================
-    // ERROR TESTS
-    // =========================================================================
-    //LCompiler.MainSourceFile := 'tests\test_exe_aligned_error.pax';
-    //LCompiler.MainSourceFile := 'tests\test_exe_badtest.pax';
-
-    // =========================================================================
-    // LIB TESTS (lib auto-imports when EXE is compiled)
-    // =========================================================================
-    //LCompiler.MainSourceFile := 'tests\test_exe_imports.pax';
-    //LCompiler.MainSourceFile := 'tests\test_lib_math_exe.pax';
-    //LCompiler.MainSourceFile := 'tests\test_lib_mathlib_exe.pax';
-
-    // =========================================================================
-    // DLL TESTS (must build DLL first, then EXE)
-    // =========================================================================
-    // Step 1: Build DLL
-    //LCompiler.MainSourceFile := 'tests\test_dll_strings.pax';
-    // Step 2: Build EXE that uses DLL
-    //LCompiler.MainSourceFile := 'tests\test_dll_strings_exe.pax';
-
-    LCompiler.Build();
-  finally
-    ShowErrors(LCompiler.Errors);
-    LCompiler.Free();
-  end;
-end;
-
 procedure TestFile(const ABaseFilename: string);
 var
   LCompiler: TPaxCompiler;
@@ -140,7 +76,7 @@ procedure TestFiles();
 var
   LNum: Integer;
 begin
-  LNum := 31;
+  LNum := 32;
 
   case LNum of
     // STANDALONE EXE TESTS (no dependencies, any order)
@@ -175,20 +111,21 @@ begin
     29: TestFile('test_exe_type_alias');
     30: TestFile('test_exe_edge_cases');
     31: TestFile('test_exe_gui');
+    32: TestFile('test_exe_memory');
 
     // ERROR TESTS
-    32: TestFile('test_exe_aligned_error');
-    33: TestFile('test_exe_badtest');
+    33: TestFile('test_exe_aligned_error');
+    34: TestFile('test_exe_badtest');
 
     // LIB TESTS (lib auto-compiles when EXE imports it)
-    34: TestFile('test_exe_imports');
-    35: TestFile('test_lib_math');
-    36: TestFile('test_lib_math_exe');
-    37: TestFile('test_exe_unittest');
+    35: TestFile('test_exe_imports');
+    36: TestFile('test_lib_math');
+    37: TestFile('test_lib_math_exe');
+    38: TestFile('test_exe_unittest');
 
     // DLL TESTS (must build DLL first, then EXE)
-    38: TestFile('test_dll_strings');      // Step 1: Build DLL
-    39: TestFile('test_dll_strings_exe');  // Step 2: Build EXE
+    39: TestFile('test_dll_strings');      // Step 1: Build DLL
+    40: TestFile('test_dll_strings_exe');  // Step 2: Build EXE
   end;
 end;
 

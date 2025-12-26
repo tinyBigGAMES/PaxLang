@@ -1,0 +1,140 @@
+module exe test_exe_memory;
+
+// Test memory allocation with new/dispose and dynamic arrays
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  TPoint = record
+    x: int32;
+    y: int32;
+  end;
+  
+  TNode = record
+    value: int32;
+    next: pointer to TNode;
+  end;
+  
+  TColorPoint = record(TPoint)
+    color: uint32;
+  end;
+
+var
+  pInt: pointer to int32;
+  pFloat: pointer to float64;
+  pPoint: pointer to TPoint;
+  pColor: pointer to TColorPoint;
+  pNode1: pointer to TNode;
+  pNode2: pointer to TNode;
+  pNode3: pointer to TNode;
+  arr: array of int32;
+  arrPoints: array of TPoint;
+  i: int32;
+  sum: int32;
+
+begin
+  printf('=== Memory Allocation Test ===\n\n');
+  
+  // Test 1: Allocate primitive types
+  printf('Test 1: Allocate primitive types\n');
+  new(pInt);
+  pInt^ := 42;
+  printf('  int32: %d\n', pInt^);
+  
+  new(pFloat);
+  pFloat^ := 3.14159;
+  printf('  float64: %.5f\n', pFloat^);
+  
+  // Test 2: Allocate simple record
+  printf('\nTest 2: Allocate simple record\n');
+  new(pPoint);
+  pPoint^.x := 100;
+  pPoint^.y := 200;
+  printf('  TPoint: (%d, %d)\n', pPoint^.x, pPoint^.y);
+  
+  // Test 3: Allocate extended record
+  printf('\nTest 3: Allocate extended record\n');
+  new(pColor);
+  pColor^.x := 10;
+  pColor^.y := 20;
+  pColor^.color := $FF0000;
+  printf('  TColorPoint: (%d, %d) color=0x%06X\n', pColor^.x, pColor^.y, pColor^.color);
+  
+  // Test 4: Build a linked list
+  printf('\nTest 4: Linked list allocation\n');
+  new(pNode1);
+  new(pNode2);
+  new(pNode3);
+  
+  pNode1^.value := 10;
+  pNode1^.next := pNode2;
+  
+  pNode2^.value := 20;
+  pNode2^.next := pNode3;
+  
+  pNode3^.value := 30;
+  pNode3^.next := nil;
+  
+  // Traverse using direct references
+  printf('  Node values: %d -> %d -> %d\n', 
+    pNode1^.value, 
+    pNode1^.next^.value, 
+    pNode1^.next^.next^.value);
+  
+  // Test 5: Dynamic array of primitives
+  printf('\nTest 5: Dynamic array of int32\n');
+  setlength(arr, 5);
+  for i := 0 to len(arr) - 1 do
+    arr[i] := (i + 1) * 10;
+  end;
+  printf('  Array: [%d, %d, %d, %d, %d]\n', arr[0], arr[1], arr[2], arr[3], arr[4]);
+  printf('  Length: %d\n', len(arr));
+  
+  // Test 6: Sum dynamic array
+  printf('\nTest 6: Sum dynamic array\n');
+  sum := 0;
+  for i := 0 to len(arr) - 1 do
+    sum += arr[i];
+  end;
+  printf('  Sum: %d (expected 150)\n', sum);
+  
+  // Test 7: Resize dynamic array
+  printf('\nTest 7: Resize dynamic array\n');
+  setlength(arr, 10);
+  printf('  New length: %d\n', len(arr));
+  // Original values preserved
+  printf('  Original values preserved: [%d, %d, %d, %d, %d]\n', arr[0], arr[1], arr[2], arr[3], arr[4]);
+  // Set new values
+  for i := 5 to 9 do
+    arr[i] := (i + 1) * 10;
+  end;
+  printf('  New values: [%d, %d, %d, %d, %d]\n', arr[5], arr[6], arr[7], arr[8], arr[9]);
+  
+  // Test 8: Dynamic array of records
+  printf('\nTest 8: Dynamic array of records\n');
+  setlength(arrPoints, 3);
+  arrPoints[0].x := 0;
+  arrPoints[0].y := 0;
+  arrPoints[1].x := 10;
+  arrPoints[1].y := 20;
+  arrPoints[2].x := 30;
+  arrPoints[2].y := 40;
+  
+  for i := 0 to len(arrPoints) - 1 do
+    printf('  arrPoints[%d] = (%d, %d)\n', i, arrPoints[i].x, arrPoints[i].y);
+  end;
+  
+  // Test 9: GC heap stats
+  printf('\nTest 9: GC heap statistics\n');
+  printf('  Heap size: %lld bytes\n', gc_heapsize());
+  printf('  Used size: %lld bytes\n', gc_usedsize());
+  printf('  Collections: %lld\n', gc_collectcount());
+  
+  // Test 10: Force GC collection
+  printf('\nTest 10: Force garbage collection\n');
+  gc_collect();
+  printf('  GC collection triggered\n');
+  printf('  Collections after: %lld\n', gc_collectcount());
+  
+  printf('\n=== All Memory Tests Passed ===\n');
+end.

@@ -305,7 +305,23 @@ begin
       begin
         if AType.ElementType <> nil then
         begin
-          if AType.IsConstTarget then
+          // For record/union types, use struct/union prefix for C compatibility
+          // This enables self-referential types like TNode with pointer to TNode
+          if AType.ElementType.Kind = tkRecord then
+          begin
+            if AType.IsConstTarget then
+              Result := 'const struct ' + AType.ElementType.TypeName + '*'
+            else
+              Result := 'struct ' + AType.ElementType.TypeName + '*';
+          end
+          else if AType.ElementType.Kind = tkUnion then
+          begin
+            if AType.IsConstTarget then
+              Result := 'const union ' + AType.ElementType.TypeName + '*'
+            else
+              Result := 'union ' + AType.ElementType.TypeName + '*';
+          end
+          else if AType.IsConstTarget then
             Result := 'const ' + TypeToC(AType.ElementType) + '*'
           else
             Result := TypeToC(AType.ElementType) + '*';
