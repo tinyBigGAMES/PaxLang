@@ -1,0 +1,120 @@
+module exe test_exe_routine_types;
+
+// Test routine types (function pointers) - BNF: RoutineType
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // Routine type with no params, no return
+  TProc = routine();
+  
+  // Routine type with params and return
+  TIntFunc = routine(const a: int32; const b: int32): int32;
+  
+  // Routine type with single param
+  TCallback = routine(const x: int32): int32;
+
+var
+  proc: TProc;
+  mathOp: TIntFunc;
+  cb: TCallback;
+  result: int32;
+
+// Simple procedure for TProc
+routine SayHello();
+begin
+  printf('Hello from routine pointer!\n');
+end;
+
+// Functions for TIntFunc
+routine Add(const a: int32; const b: int32): int32;
+begin
+  return a + b;
+end;
+
+routine Multiply(const a: int32; const b: int32): int32;
+begin
+  return a * b;
+end;
+
+// Function for TCallback
+routine DoubleIt(const x: int32): int32;
+begin
+  return x * 2;
+end;
+
+routine TripleIt(const x: int32): int32;
+begin
+  return x * 3;
+end;
+
+// Higher-order function: takes a callback and applies it
+routine ApplyCallback(const cb: TCallback; const value: int32): int32;
+begin
+  return cb(value);
+end;
+
+// Function that returns a routine type
+routine GetMultiplier(const factor: int32): TCallback;
+begin
+  if factor = 2 then
+    return DoubleIt
+  else
+    return TripleIt;
+  end; 
+end;
+
+begin
+  printf('=== Routine Types Test ===\n\n');
+  
+  // Test 1: Simple procedure pointer
+  printf('Test 1: Procedure pointer\n');
+  proc := SayHello;
+  proc();
+  
+  // Test 2: Function pointer with return value
+  printf('\nTest 2: Function pointer (Add)\n');
+  mathOp := Add;
+  result := mathOp(10, 5);
+  printf('Add(10, 5) = %d\n', result);
+  
+  // Test 3: Reassign function pointer
+  printf('\nTest 3: Reassign to Multiply\n');
+  mathOp := Multiply;
+  result := mathOp(10, 5);
+  printf('Multiply(10, 5) = %d\n', result);
+  
+  // Test 4: Pass routine as parameter
+  printf('\nTest 4: Pass routine as parameter\n');
+  result := ApplyCallback(DoubleIt, 7);
+  printf('ApplyCallback(DoubleIt, 7) = %d\n', result);
+  
+  result := ApplyCallback(TripleIt, 7);
+  printf('ApplyCallback(TripleIt, 7) = %d\n', result);
+  
+  // Test 5: Return routine from function
+  printf('\nTest 5: Return routine from function\n');
+  cb := GetMultiplier(2);
+  result := cb(10);
+  printf('GetMultiplier(2)(10) = %d\n', result);
+  
+  cb := GetMultiplier(3);
+  result := cb(10);
+  printf('GetMultiplier(3)(10) = %d\n', result);
+  
+  // Test 6: nil check
+  printf('\nTest 6: nil routine check\n');
+  cb := nil;
+  if cb = nil then
+    printf('Routine pointer is nil\n')
+  else
+    printf('Routine pointer is assigned\n');
+  end;
+  
+  cb := DoubleIt;
+  if cb <> nil then
+    printf('Routine pointer is now assigned\n');
+  end;
+  
+  printf('\n=== All Routine Type Tests Passed ===\n');
+end.

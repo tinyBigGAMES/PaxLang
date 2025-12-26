@@ -144,6 +144,10 @@ type
     tkLe,
     tkGe,
     tkAssign,
+    tkPlusAssign,
+    tkMinusAssign,
+    tkStarAssign,
+    tkSlashAssign,
 
     // Punctuation
     tkColon,
@@ -368,6 +372,10 @@ begin
     tkLe:          Result := '''<=''';
     tkGe:          Result := '''>=''';
     tkAssign:      Result := ''':=''';
+    tkPlusAssign:  Result := '''+=''';
+    tkMinusAssign: Result := '''-=''';
+    tkStarAssign:  Result := '''*=''';
+    tkSlashAssign: Result := '''/=''';
     tkColon:       Result := ''':''';
     tkSemicolon:   Result := ''';''';
     tkComma:       Result := ''',''';
@@ -736,15 +744,35 @@ begin
   MarkTokenStart();
   LChar := Advance();
 
-  // Single-character tokens
+  // Single-character tokens (or compound assignments)
   if LChar = '+' then
-    AddToken(tkPlus)
+  begin
+    if Match('=') then
+      AddToken(tkPlusAssign)
+    else
+      AddToken(tkPlus);
+  end
   else if LChar = '-' then
-    AddToken(tkMinus)
+  begin
+    if Match('=') then
+      AddToken(tkMinusAssign)
+    else
+      AddToken(tkMinus);
+  end
   else if LChar = '*' then
-    AddToken(tkStar)
+  begin
+    if Match('=') then
+      AddToken(tkStarAssign)
+    else
+      AddToken(tkStar);
+  end
   else if LChar = '/' then
-    AddToken(tkSlash)
+  begin
+    if Match('=') then
+      AddToken(tkSlashAssign)
+    else
+      AddToken(tkSlash);
+  end
   else if LChar = '=' then
     AddToken(tkEq)
   else if LChar = '^' then

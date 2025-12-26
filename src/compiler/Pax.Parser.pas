@@ -1,4 +1,4 @@
-{===============================================================================
+﻿{===============================================================================
   Pax™ Programming Language.
 
   Copyright © 2025-present tinyBigGAMES™ LLC
@@ -43,13 +43,17 @@ type
 
     // Token navigation
     function IsAtEnd(): Boolean;
+    {$HINTS OFF}
     function Peek(): TToken;
+    {$HINTS ON}
     function PeekNext(): TToken;
     function Previous(): TToken;
     procedure Advance();
     function Check(const AKind: TTokenKind): Boolean;
     function Match(const AKind: TTokenKind): Boolean;
+    {$HINTS OFF}
     function MatchAny(const AKinds: array of TTokenKind): Boolean;
+    {$HINTS ON}
     function Expect(const AKind: TTokenKind): TToken;
     function ExpectIdentifier(): TToken;
 
@@ -57,7 +61,9 @@ type
     procedure Error(const AMessage: string); overload;
     procedure Error(const AMessage: string; const AArgs: array of const); overload;
     procedure ErrorAt(const AToken: TToken; const AMessage: string); overload;
+    {$HINTS OFF}
     procedure ErrorAt(const AToken: TToken; const AMessage: string; const AArgs: array of const); overload;
+    {$HINTS ON}
     procedure Synchronize();
 
     // Module level
@@ -495,13 +501,15 @@ end;
 function TPaxParser.ParseDirectiveValue(): string;
 var
   LLower: string;
+  LDirectiveLine: Integer;
 begin
   Result := '';
 
   // Handle different directive types
   LLower := LowerCase(Previous().Lexeme);
+  LDirectiveLine := Previous().Range.StartLine;
 
-  if (LLower = '#apptype') or (LLower = '#subsystem') then
+  if (LLower = '#subsystem') then
   begin
     // Expects: console | gui
     if Check(tkIdentifier) then
@@ -515,7 +523,12 @@ begin
       Exit;
     end;
   end
-  else if (LLower = '#debug') or (LLower = '#unittestmode') then
+  else if LLower = '#debug' then
+  begin
+    // No value required - presence of directive enables debug
+    Result := '';
+  end
+  else if LLower = '#unittestmode' then
   begin
     // Expects: on | off
     if Check(tkIdentifier) then
@@ -537,10 +550,11 @@ begin
       Result := FCurrentToken.Lexeme;
       Advance();
 
-      // Optional value - consume tokens until end of directive context
-      while Check(tkString) or Check(tkIdentifier) or Check(tkInteger) or
+      // Optional value - consume tokens on same line as directive only
+      while (Check(tkString) or Check(tkIdentifier) or Check(tkInteger) or
             Check(tkFloat) or Check(tkPlus) or Check(tkMinus) or
-            Check(tkStar) or Check(tkSlash) or Check(tkLParen) or Check(tkRParen) do
+            Check(tkStar) or Check(tkSlash) or Check(tkLParen) or Check(tkRParen)) and
+            (FCurrentToken.Range.StartLine = LDirectiveLine) do
       begin
         Result := Result + ' ' + FCurrentToken.Lexeme;
         Advance();
@@ -568,12 +582,13 @@ begin
   end
   else if (LLower = '#if') or (LLower = '#elif') then
   begin
-    // Expects: expression - consume tokens until end of directive context
-    while Check(tkIdentifier) or Check(tkInteger) or Check(tkFloat) or
+    // Expects: expression - consume tokens on same line as directive only
+    while (Check(tkIdentifier) or Check(tkInteger) or Check(tkFloat) or
           Check(tkPlus) or Check(tkMinus) or Check(tkStar) or Check(tkSlash) or
           Check(tkLParen) or Check(tkRParen) or Check(tkEq) or Check(tkNe) or
           Check(tkLt) or Check(tkGt) or Check(tkLe) or Check(tkGe) or
-          Check(tkAnd) or Check(tkOr) or Check(tkNot) do
+          Check(tkAnd) or Check(tkOr) or Check(tkNot)) and
+          (FCurrentToken.Range.StartLine = LDirectiveLine) do
     begin
       if Result <> '' then
         Result := Result + ' ';
@@ -652,6 +667,13 @@ var
 begin
   Result := nil;
   LIsPublic := False;
+
+  // Handle directives anywhere in declaration section
+  if Check(tkDirective) then
+  begin
+    Result := ParseDirective();
+    Exit;
+  end;
 
   // Optional "public"
   if Match(tkPublic) then
@@ -969,7 +991,6 @@ var
   LTypeNode: PASTNode;
 begin
   // ["var" | "const"] Identifier ":" TypeName
-  Result := nil;
 
   // Check for var/const modifier
   if Match(tkVar) then
@@ -1265,12 +1286,16 @@ var
   LToken: TToken;
   LTargetType: PASTNode;
 begin
-  // "pointer" ["to" TypeName]
+  // "pointer" ["to" ["const"] TypeName]
   LToken := Expect(tkPointer);
   Result := CreateASTNodeWithToken(nkPointerType, LToken);
 
   if Match(tkTo) then
   begin
+    // Check for const qualifier
+    if Match(tkConst) then
+      Result^.BoolVal := True;  // BoolVal = IsConstTarget
+
     LTargetType := ParseTypeName();
     if LTargetType <> nil then
       AddASTChild(Result, LTargetType);
@@ -1382,6 +1407,10 @@ begin
 
     if Match(tkTo) then
     begin
+      // Check for const qualifier
+      if Match(tkConst) then
+        Result^.BoolVal := True;  // BoolVal = IsConstTarget
+
       LTargetType := ParseTypeName();
       if LTargetType <> nil then
         AddASTChild(Result, LTargetType);
@@ -1464,16 +1493,20 @@ function TPaxParser.ParseBlock(): PASTNode;
 var
   LToken: TToken;
   LStmt: PASTNode;
+  LLastControlToken: TToken;
+  LHasControlStmt: Boolean;
 begin
   // {Statement}
   LToken := Previous();
   Result := CreateASTNodeWithToken(nkBlock, LToken);
   Result^.NodeName := 'block';
 
+  LHasControlStmt := False;
+
   while not IsAtEnd() and not Check(tkEnd) and not Check(tkElse) and not Check(tkUntil) and
         not Check(tkPublic) and not Check(tkConst) and not Check(tkType) and
         not Check(tkVar) and not Check(tkRoutine) and not Check(tkTest) and
-        not LooksLikeCaseLabel() do
+        not Check(tkBegin) and not LooksLikeCaseLabel() do
   begin
     // Bail out if too many errors
     if (FErrors <> nil) and FErrors.ReachedMaxErrors() then
@@ -1481,12 +1514,37 @@ begin
 
     LStmt := ParseStatement();
     if LStmt <> nil then
+    begin
       AddASTChild(Result, LStmt);
+
+      // Track control statements that require 'end' keyword
+      if LStmt^.Kind in [nkIfStmt, nkWhileStmt, nkForStmt, nkCaseStmt] then
+      begin
+        LLastControlToken := LStmt^.Token;
+        LHasControlStmt := True;
+      end;
+    end;
+  end;
+
+  // If we stopped on 'begin', a previous statement likely consumed too many 'end' keywords
+  if Check(tkBegin) then
+  begin
+    if LHasControlStmt then
+      ErrorAt(LLastControlToken, Format('This ''%s'' statement is missing its ''end'' keyword', [LLastControlToken.Lexeme]))
+    else
+      Error('Unexpected ''begin'' - a previous ''if'', ''while'', ''for'', or ''case'' statement may be missing its ''end'' keyword');
   end;
 end;
 
 function TPaxParser.ParseStatement(): PASTNode;
 begin
+  // Handle directives anywhere in statement blocks
+  if Check(tkDirective) then
+  begin
+    Result := ParseDirective();
+    Exit;
+  end;
+
   // Empty statement
   if Match(tkSemicolon) then
   begin
@@ -1863,15 +1921,32 @@ var
   LDesignator: PASTNode;
   LExpr: PASTNode;
   LToken: TToken;
+  LAssignOp: TOperator;
 begin
-  // Assignment = Designator ":=" Expression [";"]
+  // Assignment = Designator (":=" | "+=" | "-=" | "*=" | "/=") Expression [";"]
   // CallStmt = Designator [";"]
   LDesignator := ParseDesignator();
 
+  LAssignOp := opNone;
+
   if Match(tkAssign) then
+    LAssignOp := opNone  // Regular assignment
+  else if Match(tkPlusAssign) then
+    LAssignOp := opAdd
+  else if Match(tkMinusAssign) then
+    LAssignOp := opSub
+  else if Match(tkStarAssign) then
+    LAssignOp := opMul
+  else if Match(tkSlashAssign) then
+    LAssignOp := opDiv;
+
+  if (Previous().Kind = tkAssign) or (Previous().Kind = tkPlusAssign) or
+     (Previous().Kind = tkMinusAssign) or (Previous().Kind = tkStarAssign) or
+     (Previous().Kind = tkSlashAssign) then
   begin
     LToken := Previous();
     Result := CreateASTNodeWithToken(nkAssignment, LToken);
+    Result^.Op := LAssignOp;
     AddASTChild(Result, LDesignator);
 
     LExpr := ParseExpression();
@@ -2222,6 +2297,14 @@ begin
   else if Check(tkIdentifier) then
   begin
     Result := ParseDesignator();
+  end
+
+  // Common mistake: using [] instead of {} for set literals
+  else if Check(tkLBracket) then
+  begin
+    Error(RSParserSetLiteralBrackets);
+    Result := nil;
+    Exit;
   end
 
   else

@@ -1,4 +1,4 @@
-{===============================================================================
+﻿{===============================================================================
   Pax™ Programming Language.
 
   Copyright © 2025-present tinyBigGAMES™ LLC
@@ -304,7 +304,12 @@ begin
     tkPointer:
       begin
         if AType.ElementType <> nil then
-          Result := TypeToC(AType.ElementType) + '*'
+        begin
+          if AType.IsConstTarget then
+            Result := 'const ' + TypeToC(AType.ElementType) + '*'
+          else
+            Result := TypeToC(AType.ElementType) + '*';
+        end
         else
           Result := 'void*';
       end;
@@ -332,7 +337,14 @@ begin
           Result := 'union';
       end;
     tkSet:      Result := 'uint64_t';
-    tkRoutine:  Result := 'void*'; // Function pointer simplified
+    tkRoutine:
+      begin
+        // Use typedef name if available, otherwise void*
+        if AType.TypeName <> '' then
+          Result := AType.TypeName
+        else
+          Result := 'void*';
+      end;
   else
     Result := 'void';
   end;
@@ -680,6 +692,27 @@ var
   LName: string;
   LValue: string;
   LSpacePos: Integer;
+
+  function TranslateToCExpr(const APaxExpr: string): string;
+  begin
+    // Translate Pascal operators to C preprocessor operators
+    Result := APaxExpr;
+    // Word boundaries matter - use simple replacements for now
+    // Handle 'not' -> '!' (must be careful not to replace 'not' inside identifiers)
+    Result := StringReplace(Result, ' not ', ' ! ', [rfReplaceAll, rfIgnoreCase]);
+    Result := StringReplace(Result, '(not ', '(! ', [rfReplaceAll, rfIgnoreCase]);
+    if LowerCase(Copy(Result, 1, 4)) = 'not ' then
+      Result := '! ' + Copy(Result, 5, Length(Result));
+    // Handle 'and' -> '&&'
+    Result := StringReplace(Result, ' and ', ' && ', [rfReplaceAll, rfIgnoreCase]);
+    // Handle 'or' -> '||'
+    Result := StringReplace(Result, ' or ', ' || ', [rfReplaceAll, rfIgnoreCase]);
+    // Handle '=' -> '==' (but not ':=' or '==')
+    Result := StringReplace(Result, ' = ', ' == ', [rfReplaceAll]);
+    // Handle '<>' -> '!='
+    Result := StringReplace(Result, ' <> ', ' != ', [rfReplaceAll]);
+  end;
+
 begin
   LName := LowerCase(ANode^.NodeName);
   LValue := ANode^.StrVal;
@@ -700,9 +733,9 @@ begin
   else if LName = '#ifndef' then
     EmitLnFmt(sfSource, '#ifndef %s', [LValue])
   else if LName = '#if' then
-    EmitLnFmt(sfSource, '#if %s', [LValue])
+    EmitLnFmt(sfSource, '#if %s', [TranslateToCExpr(LValue)])
   else if LName = '#elif' then
-    EmitLnFmt(sfSource, '#elif %s', [LValue])
+    EmitLnFmt(sfSource, '#elif %s', [TranslateToCExpr(LValue)])
   else if LName = '#else' then
     EmitLn(sfSource, '#else')
   else if LName = '#endif' then
@@ -752,6 +785,11 @@ procedure TPaxCodeGen.GenerateTypeDecl(const AFile: TSourceFile; const ANode: PA
 var
   LTypeNode: PASTNode;
   LSym: TSymbol;
+  LRoutineType: TPaxType;
+  LReturnTypeStr: string;
+  LParamStr: string;
+  LI: Integer;
+  LParam: TPaxParam;
 begin
   if GetASTChildCount(ANode) = 0 then
     Exit;
@@ -763,6 +801,53 @@ begin
       GenerateRecordType(AFile, LTypeNode, ANode^.NodeName);
     nkUnionType:
       GenerateUnionType(AFile, LTypeNode, ANode^.NodeName);
+    nkRoutineType:
+      begin
+        // Generate C function pointer typedef: typedef ReturnType (*TypeName)(params);
+        LSym := nil;
+        if FSymbols <> nil then
+          LSym := FSymbols.Lookup(ANode^.NodeName);
+
+        if (LSym <> nil) and (LSym.SymbolType <> nil) then
+        begin
+          LRoutineType := LSym.SymbolType;
+
+          // Get return type
+          if LRoutineType.ReturnType <> nil then
+            LReturnTypeStr := TypeToC(LRoutineType.ReturnType)
+          else
+            LReturnTypeStr := 'void';
+
+          // Build parameter list
+          LParamStr := '';
+          if LRoutineType.Params.Count > 0 then
+          begin
+            for LI := 0 to LRoutineType.Params.Count - 1 do
+            begin
+              if LI > 0 then
+                LParamStr := LParamStr + ', ';
+              LParam := LRoutineType.Params[LI];
+              if LParam.Mode = pmVar then
+                LParamStr := LParamStr + TypeToC(LParam.ParamType) + '* ' + LParam.ParamName
+              else
+                LParamStr := LParamStr + TypeToC(LParam.ParamType) + ' ' + LParam.ParamName;
+            end;
+          end
+          else
+            LParamStr := 'void';
+
+          // Handle variadic
+          if LRoutineType.IsVariadic then
+          begin
+            if LParamStr <> 'void' then
+              LParamStr := LParamStr + ', ...'
+            else
+              LParamStr := '...';
+          end;
+
+          EmitLnFmt(AFile, 'typedef %s (*%s)(%s);', [LReturnTypeStr, ANode^.NodeName, LParamStr]);
+        end;
+      end;
     nkArrayType, nkPointerType, nkSetType:
       begin
         LSym := nil;
@@ -1315,8 +1400,7 @@ begin
           if GetASTChildCount(LParam) > 0 then
           begin
             LTypeNode := GetASTChild(LParam, 0);
-            if (FTypes <> nil) and (LTypeNode^.Kind = nkTypeRef) then
-              LParamType := FTypes.GetType(LTypeNode^.NodeName);
+            LParamType := ResolveTypeNode(LTypeNode);
           end;
 
           if LParamType <> nil then
@@ -1419,6 +1503,13 @@ procedure TPaxCodeGen.GenerateStatement(const ANode: PASTNode);
 begin
   if ANode = nil then
     Exit;
+
+  // Handle directives first (no #line directive for preprocessor directives)
+  if ANode^.Kind = nkDirective then
+  begin
+    GenerateDirective(ANode);
+    Exit;
+  end;
 
   // Emit #line directive for source mapping
   EmitLineDirective(ANode);
@@ -1690,6 +1781,8 @@ var
   LTarget, LValue: string;
   LTargetType: TPaxType;
   LValueNode: PASTNode;
+  LAssignOp: TOperator;
+  LCOp: string;
 begin
   if GetASTChildCount(ANode) < 2 then
     Exit;
@@ -1697,11 +1790,59 @@ begin
   LValueNode := GetASTChild(ANode, 1);
   LTarget := GenerateExpression(GetASTChild(ANode, 0));
   LValue := GenerateExpression(LValueNode);
+  LAssignOp := ANode^.Op;
 
   // Get target type for special handling
   LTargetType := GetExpressionType(GetASTChild(ANode, 0));
 
-  // Special handling: assigning string literal to string variable
+  // Handle compound assignments
+  if LAssignOp <> opNone then
+  begin
+    // String concatenation with +=
+    if (LAssignOp = opAdd) and (LTargetType <> nil) and (LTargetType.Kind = tkString) then
+    begin
+      if LValueNode^.Kind = nkStrLiteral then
+        EmitLnFmt(sfSource, '%s = pax_string_concat(%s, pax_string_new(%s));', [LTarget, LTarget, LValue])
+      else
+        EmitLnFmt(sfSource, '%s = pax_string_concat(%s, %s);', [LTarget, LTarget, LValue]);
+      Exit;
+    end;
+
+    // Wide string concatenation with +=
+    if (LAssignOp = opAdd) and (LTargetType <> nil) and (LTargetType.Kind = tkWString) then
+    begin
+      if LValueNode^.Kind = nkWideStrLiteral then
+        EmitLnFmt(sfSource, '%s = pax_wstring_concat(%s, pax_wstring_new(%s));', [LTarget, LTarget, LValue])
+      else
+        EmitLnFmt(sfSource, '%s = pax_wstring_concat(%s, %s);', [LTarget, LTarget, LValue]);
+      Exit;
+    end;
+
+    // Set operations with compound assignment
+    if (LTargetType <> nil) and LTargetType.IsSet() then
+    begin
+      case LAssignOp of
+        opAdd: EmitLnFmt(sfSource, '%s |= %s;', [LTarget, LValue]);   // Union
+        opSub: EmitLnFmt(sfSource, '%s &= ~%s;', [LTarget, LValue]);  // Difference
+        opMul: EmitLnFmt(sfSource, '%s &= %s;', [LTarget, LValue]);   // Intersection
+      end;
+      Exit;
+    end;
+
+    // Numeric compound assignment - emit directly to C
+    case LAssignOp of
+      opAdd: LCOp := '+=';
+      opSub: LCOp := '-=';
+      opMul: LCOp := '*=';
+      opDiv: LCOp := '/=';
+    else
+      LCOp := '=';
+    end;
+    EmitLnFmt(sfSource, '%s %s %s;', [LTarget, LCOp, LValue]);
+    Exit;
+  end;
+
+  // Regular assignment - special handling for literals
   if (LTargetType <> nil) then
   begin
     // string := 'literal' -> wrap with pax_string_new
@@ -1940,6 +2081,24 @@ begin
     Exit;
   end;
 
+  // Check for set operations (+, -, *)
+  if ANode^.Op in [opAdd, opSub, opMul] then
+  begin
+    LLeftType := GetExpressionType(GetASTChild(ANode, 0));
+    LRightType := GetExpressionType(GetASTChild(ANode, 1));
+
+    if (LLeftType <> nil) and (LRightType <> nil) and
+       LLeftType.IsSet() and LRightType.IsSet() then
+    begin
+      case ANode^.Op of
+        opAdd: Result := Format('(%s | %s)', [LLeft, LRight]);    // Union
+        opSub: Result := Format('(%s & ~%s)', [LLeft, LRight]);   // Difference
+        opMul: Result := Format('(%s & %s)', [LLeft, LRight]);    // Intersection
+      end;
+      Exit;
+    end;
+  end;
+
   LOp := OperatorToC(ANode^.Op);
   Result := Format('(%s %s %s)', [LLeft, LOp, LRight]);
 end;
@@ -1965,8 +2124,24 @@ begin
 end;
 
 function TPaxCodeGen.GenerateIdentifier(const ANode: PASTNode): string;
+var
+  LName: string;
 begin
-  Result := ANode^.NodeName;
+  LName := ANode^.NodeName;
+
+  // Handle built-in PAX version constants - emit literal values
+  if LName = 'PAX_MAJOR_VERSION' then
+    Exit(IntToStr(PAX_MAJOR_VERSION))
+  else if LName = 'PAX_MINOR_VERSION' then
+    Exit(IntToStr(PAX_MINOR_VERSION))
+  else if LName = 'PAX_PATCH_VERSION' then
+    Exit(IntToStr(PAX_PATCH_VERSION))
+  else if LName = 'PAX_VERSION' then
+    Exit(IntToStr(PAX_VERSION))
+  else if LName = 'PAX_VERSION_STR' then
+    Exit('"' + PAX_VERSION_STR + '"');
+
+  Result := LName;
 
   // If this is a var parameter, dereference it
   if FVarParams.ContainsKey(Result) then
@@ -2093,6 +2268,22 @@ begin
           Result := Format('%s->data', [LArgExpr]);
           Exit;
         end;
+      end;
+
+      // Special handling: string literal -> char (extract first character)
+      if (LTargetType <> nil) and (LTargetType.Kind = tkChar) and
+         (GetASTChild(ANode, 1)^.Kind = nkStrLiteral) then
+      begin
+        Result := Format('%s[0]', [LArgExpr]);
+        Exit;
+      end;
+
+      // Special handling: wide string literal -> wchar (extract first character)
+      if (LTargetType <> nil) and (LTargetType.Kind = tkWChar) and
+         (GetASTChild(ANode, 1)^.Kind = nkWideStrLiteral) then
+      begin
+        Result := Format('%s[0]', [LArgExpr]);
+        Exit;
       end;
 
       // Default cast
@@ -2303,6 +2494,22 @@ begin
     end;
   end;
 
+  // Special handling: string literal -> char (extract first character)
+  if (LTargetType <> nil) and (LTargetType.Kind = tkChar) and
+     (GetASTChild(ANode, 1)^.Kind = nkStrLiteral) then
+  begin
+    Result := Format('%s[0]', [LExpr]);
+    Exit;
+  end;
+
+  // Special handling: wide string literal -> wchar (extract first character)
+  if (LTargetType <> nil) and (LTargetType.Kind = tkWChar) and
+     (GetASTChild(ANode, 1)^.Kind = nkWideStrLiteral) then
+  begin
+    Result := Format('%s[0]', [LExpr]);
+    Exit;
+  end;
+
   // Default cast
   Result := Format('((%s)%s)', [LType, LExpr]);
 end;
@@ -2312,14 +2519,14 @@ var
   LTypeNode: PASTNode;
   LType: string;
   LTargetType: TPaxType;
-  LTypeName: string;
+
 begin
   if GetASTChildCount(ANode) = 0 then
     Exit('0');
 
   LTypeNode := GetASTChild(ANode, 0);
-  LTargetType := nil;
-  
+
+
   // Try to resolve the type through multiple approaches
   // 1. Use ResolveTypeNode for structured type nodes
   LTargetType := ResolveTypeNode(LTypeNode);
@@ -2783,6 +2990,27 @@ begin
         if GetASTChildCount(ANode) > 0 then
           Result := ResolveTypeNode(GetASTChild(ANode, 0));
       end;
+
+    nkParamStr:
+      if FTypes <> nil then Result := FTypes.StringType;
+
+    nkParamCount:
+      if FTypes <> nil then Result := FTypes.Int32Type;
+
+    nkLen:
+      if FTypes <> nil then Result := FTypes.Int64Type;
+
+    nkSizeOf:
+      if FTypes <> nil then Result := FTypes.Int64Type;
+
+    nkGcHeapSize:
+      if FTypes <> nil then Result := FTypes.Int64Type;
+
+    nkGcUsedSize:
+      if FTypes <> nil then Result := FTypes.Int64Type;
+
+    nkGcCollectCount:
+      if FTypes <> nil then Result := FTypes.Int64Type;
   end;
 end;
 
@@ -2811,7 +3039,7 @@ begin
         begin
           LElementType := ResolveTypeNode(GetASTChild(ANode, 0));
           if LElementType <> nil then
-            Result := FTypes.CreatePointerType(LElementType)
+            Result := FTypes.CreatePointerType(LElementType, ANode^.BoolVal)  // BoolVal = IsConstTarget
           else
             Result := FTypes.PointerType;
         end

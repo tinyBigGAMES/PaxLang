@@ -1,0 +1,111 @@
+module exe test_exe_type_alias;
+
+// Test type aliases and untyped pointers
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+type
+  // Simple type aliases
+  THandle = uint64;
+  TSize = int64;
+  TByte = uint8;
+  TWord = uint16;
+  TDWord = uint32;
+  
+  // Alias of alias
+  TFileHandle = THandle;
+  
+  // Record using aliases
+  TFileInfo = record
+    handle: TFileHandle;
+    size: TSize;
+    flags: TDWord;
+  end;
+
+var
+  h: THandle;
+  fh: TFileHandle;
+  sz: TSize;
+  b: TByte;
+  w: TWord;
+  dw: TDWord;
+  info: TFileInfo;
+  
+  // Untyped pointer
+  p: pointer;
+  pInt: pointer to int32;
+  intVal: int32;
+
+begin
+  printf('=== Type Alias Test ===\n\n');
+  
+  // Test 1: Simple type alias
+  printf('Test 1: Simple type aliases\n');
+  h := 12345;
+  printf('  THandle h = %llu\n', h);
+  
+  sz := 1000000;
+  printf('  TSize sz = %lld\n', sz);
+  
+  b := 255;
+  printf('  TByte b = %d\n', b);
+  
+  w := 65535;
+  printf('  TWord w = %d\n', w);
+  
+  dw := $DEADBEEF;
+  printf('  TDWord dw = %u (0x%X)\n', dw, dw);
+  
+  // Test 2: Alias of alias
+  printf('\nTest 2: Alias of alias\n');
+  fh := 99999;
+  printf('  TFileHandle fh = %llu\n', fh);
+  
+  // Assign between compatible aliases
+  h := fh;
+  printf('  THandle h = TFileHandle fh: %llu\n', h);
+  
+  // Test 3: Record with alias types
+  printf('\nTest 3: Record with alias types\n');
+  info.handle := 42;
+  info.size := 1024;
+  info.flags := $0001;
+  printf('  info.handle = %llu\n', info.handle);
+  printf('  info.size = %lld\n', info.size);
+  printf('  info.flags = %u\n', info.flags);
+  
+  // Test 4: Untyped pointer
+  printf('\nTest 4: Untyped pointer\n');
+  p := nil;
+  if p = nil then
+    printf('  Untyped pointer p is nil\n');
+  
+  // Assign address to untyped pointer
+  intVal := 42;
+  p := @intVal;
+  printf('  p now points to intVal\n');
+  
+  if p <> nil then
+    printf('  Untyped pointer p is not nil\n');
+  
+  // Test 5: Cast untyped to typed pointer
+  printf('\nTest 5: Cast untyped to typed pointer\n');
+  pInt := pointer to int32(p);
+  printf('  Value through cast pointer: %d\n', pInt^);
+  
+  // Test 6: Pointer comparisons
+  printf('\nTest 6: Pointer comparisons\n');
+  if p = @intVal then
+    printf('  p equals address of intVal\n');
+  
+  // Test 7: sizeof with type aliases
+  printf('\nTest 7: sizeof with type aliases\n');
+  printf('  sizeof(THandle) = %d\n', sizeof(THandle));
+  printf('  sizeof(TSize) = %d\n', sizeof(TSize));
+  printf('  sizeof(TByte) = %d\n', sizeof(TByte));
+  printf('  sizeof(TWord) = %d\n', sizeof(TWord));
+  printf('  sizeof(TDWord) = %d\n', sizeof(TDWord));
+  printf('  sizeof(pointer) = %d\n', sizeof(pointer));
+  
+  printf('\n=== All Type Alias Tests Passed ===\n');
+end.

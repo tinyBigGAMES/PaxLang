@@ -1,0 +1,86 @@
+module exe test_exe_compound_assign;
+
+// Test compound assignment operators (+=, -=, *=, /=)
+
+routine printf(const fmt: pointer to const char; ...): int32; external 'msvcrt.dll';
+
+type
+  TDay = uint8;
+  TDays = set of TDay;
+
+const
+  Monday    = 0;
+  Tuesday   = 1;
+  Wednesday = 2;
+  Thursday  = 3;
+  Friday    = 4;
+  Saturday  = 5;
+  Sunday    = 6;
+
+var
+  a: int32;
+  b: int32;
+  c: int32;
+  d: int32;
+  f: float64;
+  s: string;
+  days: TDays;
+  perms: TDays;
+
+begin
+  printf('=== Compound Assignment Test ===\n\n');
+
+  // Test 1: Integer +=
+  printf('Test 1: Integer +=\n');
+  a := 10;
+  a += 5;
+  printf('  10 += 5 = %d (expected 15)\n', a);
+
+  // Test 2: Integer -=
+  printf('\nTest 2: Integer -=\n');
+  b := 20;
+  b -= 8;
+  printf('  20 -= 8 = %d (expected 12)\n', b);
+
+  // Test 3: Integer *=
+  printf('\nTest 3: Integer *=\n');
+  c := 7;
+  c *= 3;
+  printf('  7 *= 3 = %d (expected 21)\n', c);
+
+  // Test 4: Integer /=
+  printf('\nTest 4: Integer /=\n');
+  d := 100;
+  d /= 4;
+  printf('  100 /= 4 = %d (expected 25)\n', d);
+
+  // Test 5: Float +=
+  printf('\nTest 5: Float +=\n');
+  f := 3.5;
+  f += 1.5;
+  printf('  3.5 += 1.5 = %.1f (expected 5.0)\n', f);
+
+  // Test 6: String +=
+  printf('\nTest 6: String +=\n');
+  s := 'Hello';
+  s += ' World';
+  printf('  String += : %s (expected Hello World)\n', pointer to char(s));
+
+  // Test 7: Set += (union)
+  printf('\nTest 7: Set += (union)\n');
+  days := {Monday, Tuesday};
+  days += {Wednesday, Thursday};
+  if Wednesday in days then
+    printf('  Wednesday added via += (correct)\n');
+  end;
+
+  // Test 8: Set -= (difference)
+  printf('\nTest 8: Set -= (difference)\n');
+  perms := {Monday, Tuesday, Wednesday};
+  perms -= {Tuesday};
+  if not (Tuesday in perms) then
+    printf('  Tuesday removed via -= (correct)\n');
+  end;
+
+  printf('\n=== All Compound Assignment Tests Passed ===\n');
+end.

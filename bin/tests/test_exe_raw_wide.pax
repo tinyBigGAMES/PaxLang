@@ -1,0 +1,51 @@
+module exe test_exe_raw_wide;
+
+// Test raw wide strings @L'...' and wide string variants
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+routine wprintf(const fmt: pointer to const wchar; ...): int32; external 'msvcrt.dll';
+
+var
+  rawPath: wstring;
+  escapedPath: wstring;
+  rawBackslash: wstring;
+  normalWide: wstring;
+
+begin
+  printf('=== Raw Wide String Test ===\n\n');
+  
+  // Test 1: Raw wide string with backslashes (no escaping needed)
+  printf('Test 1: Raw wide string path\n');
+  rawPath := @L'C:\Windows\System32\kernel32.dll';
+  wprintf(L'  Raw path: %ls\n', pointer to wchar(rawPath));
+  
+  // Test 2: Equivalent escaped wide string
+  printf('\nTest 2: Escaped wide string path\n');
+  escapedPath := L'C:\\Windows\\System32\\kernel32.dll';
+  wprintf(L'  Escaped path: %ls\n', pointer to wchar(escapedPath));
+  
+  // Test 3: Raw wide string with multiple backslashes
+  printf('\nTest 3: UNC path with raw wide string\n');
+  rawBackslash := @L'\\server\share\folder\file.txt';
+  wprintf(L'  UNC path: %ls\n', pointer to wchar(rawBackslash));
+  
+  // Test 4: Normal wide string (no backslashes)
+  printf('\nTest 4: Normal wide string\n');
+  normalWide := L'Hello, Wide World!';
+  wprintf(L'  Message: %ls\n', pointer to wchar(normalWide));
+  
+  // Test 5: Raw wide string with quotes inside
+  printf('\nTest 5: Raw wide with single quotes\n');
+  rawPath := @L'It''s a test';
+  wprintf(L'  With quotes: %ls\n', pointer to wchar(rawPath));
+  
+  // Test 6: Compare raw and escaped are equal
+  printf('\nTest 6: Verify raw and escaped produce same result\n');
+  rawPath := @L'C:\Path\File';
+  escapedPath := L'C:\\Path\\File';
+  // Both should display identically
+  wprintf(L'  Raw:     %ls\n', pointer to wchar(rawPath));
+  wprintf(L'  Escaped: %ls\n', pointer to wchar(escapedPath));
+  
+  printf('\n=== Raw Wide String Test Complete ===\n');
+end.

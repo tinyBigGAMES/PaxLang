@@ -62,6 +62,10 @@ type
     FOutputCallback: TOutputCallback;
     FVerbose: Boolean;
     FUnitTestMode: Boolean;
+    FDebugMode: Boolean;
+    FTCCOptions: TList<string>;
+    FIncludePaths: TList<string>;
+    FLibraryPaths: TList<string>;
 
     // Version info and post-build settings
     FAddVersionInfo: Boolean;
@@ -111,7 +115,9 @@ type
 
     function GetCHeader(): string;
     function GetCSource(): string;
+    {$HINTS OFF}
     function SaveCFiles(const AOutputDir: string): Boolean;
+    {$HINTS ON}
     procedure SetTCCBasePath(const APath: string);
     procedure SetGeneratedPath(const APath: string);
     procedure Output(const AMsg: string); overload;
@@ -192,6 +198,10 @@ begin
   FOutputCallback := nil;
   FVerbose := False;
   FUnitTestMode := False;
+  FDebugMode := False;
+  FTCCOptions := TList<string>.Create();
+  FIncludePaths := TList<string>.Create();
+  FLibraryPaths := TList<string>.Create();
 end;
 
 destructor TPaxCompiler.Destroy();
@@ -199,6 +209,9 @@ begin
   if FASTRoot <> nil then
     FreeASTNode(FASTRoot);
 
+  FLibraryPaths.Free();
+  FIncludePaths.Free();
+  FTCCOptions.Free();
   FModuleLoader.Free();
   FTCC.Free();
   FCodeGen.Free();
@@ -281,6 +294,10 @@ begin
   FCodeGen.Clear();
   FModuleName := '';
   FUnitTestMode := False;
+  FDebugMode := False;
+  FTCCOptions.Clear();
+  FIncludePaths.Clear();
+  FLibraryPaths.Clear();
 end;
 
 function TPaxCompiler.RunLexer(const ASource: string; const AFilename: string): Boolean;
@@ -330,7 +347,7 @@ begin
         FOutputPath := LValue
       else if LName = '#generatedpath' then
         FGeneratedPath := LValue
-      else if (LName = '#subsystem') or (LName = '#apptype') then
+      else if LName = '#subsystem' then
       begin
         // Validate: #subsystem only valid for EXE modules
         if (FASTRoot^.StrVal <> '') and (LowerCase(FASTRoot^.StrVal) <> 'exe') then
@@ -346,7 +363,36 @@ begin
           FUnitTestMode := True
         else
           FUnitTestMode := False;
-      end;
+      end
+      else if LName = '#debug' then
+        FDebugMode := True
+      else if LName = '#option' then
+        FTCCOptions.Add(LValue)
+      else if LName = '#includepath' then
+        FIncludePaths.Add(LValue)
+      // Preprocessor directives handled by codegen - skip silently
+      else if (LName = '#define') or (LName = '#undef') or
+              (LName = '#ifdef') or (LName = '#ifndef') or
+              (LName = '#if') or (LName = '#elif') or
+              (LName = '#else') or (LName = '#endif') then
+      begin
+        // These are handled during code generation, not here
+      end
+      // Build-phase directives handled in ProcessDirectivesPre/Post - skip silently
+      else if (LName = '#library') or (LName = '#librarypath') or (LName = '#addfile') then
+      begin
+        // These are handled during build, not here
+      end
+      // Version info directives handled in ProcessVersionInfoDirectives - skip silently
+      else if (LName = '#addverinfo') or (LName = '#vimajor') or (LName = '#viminor') or
+              (LName = '#vipatch') or (LName = '#viproductname') or (LName = '#videscription') or
+              (LName = '#vifilename') or (LName = '#vicompanyname') or (LName = '#vicopyright') or
+              (LName = '#exeicon') then
+      begin
+        // These are handled during build, not here
+      end
+      else
+        FErrors.Add(LChild^.Token.Range, esWarning, 'W082', Format('Unknown directive: %s', [LChild^.NodeName]));
     end;
   end;
 end;
@@ -454,6 +500,10 @@ begin
 
   Reset();
 
+  // Print banner first so errors have context
+  Output(COLOR_GREEN + '=== Pax Compiler v%s ===' + COLOR_RESET, [GetVersionStr()]);
+  Output('');
+
   LStopwatch := TStopwatch.StartNew();
 
   // Add source directory to module search paths
@@ -483,9 +533,6 @@ begin
   end
   else
     LModuleKind := 'unknown';
-
-  Output(COLOR_GREEN + '=== Pax Compiler v%s ===' + COLOR_RESET, [GetVersionStr()]);
-  Output('');
 
   // Phase 2.5: Process early directives (#modulepath)
   ProcessEarlyDirectives();
@@ -875,6 +922,10 @@ begin
   LIncludePath := TPath.Combine(LBasePath, 'include');
   LLibPath := TPath.Combine(LBasePath, 'lib');
 
+  // Apply debug mode BEFORE setting output type (required by TCC)
+  if FDebugMode then
+    FTCC.SetDebugInfo(True);
+
   // Set output type
   if not FTCC.SetOuput(AOutput) then
   begin
@@ -909,6 +960,12 @@ begin
     Exit;
   end;
 
+  // Define PAX compiler identification and version macros
+  FTCC.DefineSymbol('PAX', '1');
+  FTCC.DefineSymbol('PAX_MAJOR_VERSION', PAX_MAJOR_VERSION.ToString);
+  FTCC.DefineSymbol('PAX_MINOR_VERSION', PAX_MINOR_VERSION.ToString);
+  FTCC.DefineSymbol('PAX_PATCH_VERSION', PAX_PATCH_VERSION.ToString);
+
   Result := True;
 end;
 
@@ -941,9 +998,21 @@ var
   LChild: PASTNode;
   LName: string;
   LValue: string;
+  LOption: string;
+  LPath: string;
 begin
   if FASTRoot = nil then
     Exit;
+
+  // NOTE: Debug mode is applied in SetupTCC before output type is set
+
+  // Apply TCC options (from ProcessEarlyDirectives)
+  for LOption in FTCCOptions do
+    FTCC.SetOption(LOption);
+
+  // Apply include paths (from ProcessEarlyDirectives)
+  for LPath in FIncludePaths do
+    FTCC.AddIncludePath(LPath);
 
   for LI := 0 to GetASTChildCount(FASTRoot) - 1 do
   begin
@@ -1055,8 +1124,14 @@ begin
         FVICopyright := LValue
       else if LName = '#exeicon' then
       begin
-        FExeIcon := LValue;
-        FExeIcon := FExeIcon.Replace('\', '/');
+        // Validate: #exeicon only valid for EXE modules
+        if (FASTRoot^.StrVal <> '') and (LowerCase(FASTRoot^.StrVal) <> 'exe') then
+          FErrors.Add(LChild^.Token.Range, esError, 'E081', '#exeicon directive is only valid for EXE modules')
+        else
+        begin
+          FExeIcon := LValue;
+          FExeIcon := FExeIcon.Replace('\', '/');
+        end;
       end;
     end;
   end;

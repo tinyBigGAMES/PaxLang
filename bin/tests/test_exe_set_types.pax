@@ -1,0 +1,135 @@
+module exe test_exe_set_types;
+
+// Test set of TypeName (sets based on type aliases)
+
+routine printf(const fmt: pointer to const char; ...): int32; external 'msvcrt.dll';
+
+type
+  // Type alias for ordinal
+  TDay = uint8;
+  
+  // Set of type alias
+  TDays = set of TDay;
+  
+  // Another type alias
+  TFlag = uint8;
+  TFlags = set of TFlag;
+
+const
+  // Day constants
+  Sunday    = 0;
+  Monday    = 1;
+  Tuesday   = 2;
+  Wednesday = 3;
+  Thursday  = 4;
+  Friday    = 5;
+  Saturday  = 6;
+  
+  // Flag constants
+  FlagRead    = 0;
+  FlagWrite   = 1;
+  FlagExecute = 2;
+  FlagHidden  = 3;
+
+var
+  workDays: TDays;
+  weekend: TDays;
+  allDays: TDays;
+  permissions: TFlags;
+  day: TDay;
+
+begin
+  printf('=== Set of TypeName Test ===\n\n');
+  
+  // Test 1: Initialize set with type alias values
+  printf('Test 1: Initialize typed sets\n');
+  workDays := {Monday, Tuesday, Wednesday, Thursday, Friday};
+  weekend := {Saturday, Sunday};
+  printf('  workDays and weekend sets created\n');
+  
+  // Test 2: 'in' operator with typed set
+  printf('\nTest 2: Membership test with in operator\n');
+  if Monday in workDays then
+    printf('  Monday is a work day\n');
+  end;
+  
+  if Saturday in weekend then
+    printf('  Saturday is a weekend day\n');
+  end;
+  
+  if Sunday in workDays then
+    printf('  ERROR: Sunday should not be in workDays\n')
+  else
+    printf('  Sunday is not a work day (correct)\n');
+  end;
+  
+  // Test 3: Set union
+  printf('\nTest 3: Set union\n');
+  allDays := workDays + weekend;
+  if Wednesday in allDays then
+    printf('  Wednesday in allDays\n');
+  end;
+  
+  if Saturday in allDays then
+    printf('  Saturday in allDays\n');
+  end;
+  
+  // Test 4: Set difference
+  printf('\nTest 4: Set difference\n');
+  workDays := allDays - weekend;
+  if Saturday in workDays then
+    printf('  ERROR: Saturday should be removed\n')
+  else
+    printf('  Saturday removed from workDays\n');
+  end;
+  
+  // Test 5: Set intersection
+  printf('\nTest 5: Set intersection\n');
+  workDays := {Monday, Tuesday, Wednesday};
+  weekend := {Wednesday, Saturday, Sunday};  // Wednesday in both for test
+  allDays := workDays * weekend;  // intersection
+  if Wednesday in allDays then
+    printf('  Wednesday is in intersection\n');
+  end;
+  
+  if Monday in allDays then
+    printf('  ERROR: Monday should not be in intersection\n')
+  else
+    printf('  Monday not in intersection (correct)\n');
+  end;
+  
+  // Test 6: Flags example
+  printf('\nTest 6: Flags with typed set\n');
+  permissions := {FlagRead, FlagWrite};
+  
+  if FlagRead in permissions then
+    printf('  Has read permission\n');
+  end;
+  
+  if FlagWrite in permissions then
+    printf('  Has write permission\n');
+  end;
+  
+  if FlagExecute in permissions then
+    printf('  Has execute permission\n')
+  else
+    printf('  No execute permission\n');
+  end;
+  
+  // Add execute permission
+  permissions := permissions + {FlagExecute};
+  if FlagExecute in permissions then
+    printf('  Execute permission added\n');
+  end;
+  
+  // Test 7: Empty set
+  printf('\nTest 7: Empty set\n');
+  permissions := {};
+  if FlagRead in permissions then
+    printf('  ERROR: Empty set should have no flags\n')
+  else
+    printf('  Empty set has no flags (correct)\n');
+  end;  
+  
+  printf('\n=== All Set of TypeName Tests Passed ===\n');
+end.

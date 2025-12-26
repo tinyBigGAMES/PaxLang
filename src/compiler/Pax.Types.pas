@@ -24,6 +24,8 @@ const
   PAX_MAJOR_VERSION = 0;
   PAX_MINOR_VERSION = 1;
   PAX_PATCH_VERSION = 0;
+  PAX_VERSION = (PAX_MAJOR_VERSION * 10000) + (PAX_MINOR_VERSION * 100) + PAX_PATCH_VERSION;
+  PAX_VERSION_STR = '0.1.0';
 
 type
 
@@ -140,6 +142,7 @@ type
     FHighBound: Int64;
     FIsDynamic: Boolean;
     FIsFlexibleArray: Boolean;
+    FIsConstTarget: Boolean;  // For pointer to const T
 
     // For record types
     FFields: TObjectList<TPaxField>;
@@ -188,6 +191,7 @@ type
     property HighBound: Int64 read FHighBound write FHighBound;
     property IsDynamic: Boolean read FIsDynamic write FIsDynamic;
     property IsFlexibleArray: Boolean read FIsFlexibleArray write FIsFlexibleArray;
+    property IsConstTarget: Boolean read FIsConstTarget write FIsConstTarget;
     property Fields: TObjectList<TPaxField> read FFields;
     property ParentType: TPaxType read FParentType write FParentType;
     property IsPacked: Boolean read FIsPacked write FIsPacked;
@@ -236,7 +240,7 @@ type
     function GetType(const AName: string): TPaxType;
     function RegisterType(const AType: TPaxType): TPaxType;
 
-    function CreatePointerType(const AElementType: TPaxType): TPaxType;
+    function CreatePointerType(const AElementType: TPaxType; const AIsConstTarget: Boolean = False): TPaxType;
     function CreateArrayType(const AElementType: TPaxType; const ALow, AHigh: Int64): TPaxType;
     function CreateDynamicArrayType(const AElementType: TPaxType): TPaxType;
     function CreateFlexibleArrayType(const AElementType: TPaxType): TPaxType;
@@ -589,16 +593,22 @@ begin
   end;
 end;
 
-function TPaxTypeRegistry.CreatePointerType(const AElementType: TPaxType): TPaxType;
+function TPaxTypeRegistry.CreatePointerType(const AElementType: TPaxType; const AIsConstTarget: Boolean = False): TPaxType;
 begin
   Result := TPaxType.Create();
   Result.Kind := tkPointer;
   Result.Size := 8;
   Result.Alignment := 8;
   Result.ElementType := AElementType;
+  Result.IsConstTarget := AIsConstTarget;
 
   if AElementType <> nil then
-    Result.TypeName := 'pointer to ' + AElementType.TypeName
+  begin
+    if AIsConstTarget then
+      Result.TypeName := 'pointer to const ' + AElementType.TypeName
+    else
+      Result.TypeName := 'pointer to ' + AElementType.TypeName;
+  end
   else
     Result.TypeName := 'pointer';
 
@@ -833,6 +843,10 @@ begin
 
   // nil is compatible with any pointer
   if ATarget.IsPointer() and (ASource.Kind = tkPointer) and (ASource.ElementType = nil) then
+    Exit(True);
+
+  // nil is compatible with routine types (function pointers)
+  if ATarget.IsRoutine() and (ASource.Kind = tkPointer) and (ASource.ElementType = nil) then
     Exit(True);
 
   Result := False;

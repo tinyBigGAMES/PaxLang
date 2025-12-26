@@ -84,6 +84,7 @@ resourcestring
   RSParserAlignmentExceedsMax = 'Alignment %d exceeds maximum supported alignment of %d bytes';
   RSParserLexerNotSet = 'Lexer not set';
   RSParserNoTokens = 'No tokens to parse';
+  RSParserSetLiteralBrackets = 'Set literals use braces {}, not brackets []';
 
   //--------------------------------------------------------------------------
   // Type Errors (E100-E149)

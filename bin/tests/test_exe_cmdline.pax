@@ -1,0 +1,40 @@
+module exe test_exe_cmdline;
+
+// Test paramcount() and paramstr() intrinsics
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+var
+  i: int32;
+  count: int32;
+  arg: string;
+
+begin
+  printf('=== Command Line Test ===\n\n');
+  
+  // Test 1: Get argument count
+  count := paramcount();
+  printf('paramcount() = %d\n', count);
+  
+  // Test 2: Get executable name (index 0)
+  printf('\nparamstr(0) = %s\n', pointer to char(paramstr(0)));
+  
+  // Test 3: Iterate through all arguments
+  printf('\nAll arguments:\n');
+  for i := 0 to count do
+    arg := paramstr(i);
+    printf('  [%d] = %s\n', i, pointer to char(arg));
+  end;
+  
+  // Test 4: Access specific indices
+  if count >= 1 then
+    printf('\nFirst argument: %s\n', pointer to char(paramstr(1)));
+  end;
+  
+  if count >= 2 then
+    printf('Second argument: %s\n', pointer to char(paramstr(2)));
+  end;
+  
+  printf('\n=== Command Line Test Complete ===\n');
+  printf('Run with arguments to see them listed.\n');
+end.

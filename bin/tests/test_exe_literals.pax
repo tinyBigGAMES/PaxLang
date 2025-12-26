@@ -1,0 +1,102 @@
+module exe test_exe_literals;
+
+// Test all literal formats: 0x hex, float exponents, escape sequences
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+var
+  // Integer literals
+  hexDollar: int32;
+  hex0x: int32;
+  hex0xLarge: int64;
+  decimal: int32;
+  
+  // Float literals
+  floatSimple: float64;
+  floatExp1: float64;
+  floatExp2: float64;
+  floatExp3: float64;
+  floatExpNeg: float64;
+  floatExpPos: float64;
+  
+  // String with escapes
+  escaped: string;
+
+begin
+  printf('=== Literals Test ===\n\n');
+  
+  // Test 1: Hex literals with $ prefix (already tested, baseline)
+  printf('Test 1: Hex with $ prefix\n');
+  hexDollar := $FF;
+  printf('  $FF = %d (expect 255)\n', hexDollar);
+  hexDollar := $1234;
+  printf('  $1234 = %d (expect 4660)\n', hexDollar);
+  
+  // Test 2: Hex literals with 0x prefix
+  printf('\nTest 2: Hex with 0x prefix\n');
+  hex0x := 0xFF;
+  printf('  0xFF = %d (expect 255)\n', hex0x);
+  hex0x := 0x1234;
+  printf('  0x1234 = %d (expect 4660)\n', hex0x);
+  hex0x := 0xABCD;
+  printf('  0xABCD = %d (expect 43981)\n', hex0x);
+  
+  // Test 3: Large hex values
+  printf('\nTest 3: Large hex values\n');
+  hex0xLarge := 0xFFFFFFFF;
+  printf('  0xFFFFFFFF = %lld\n', hex0xLarge);
+  hex0xLarge := 0x123456789ABC;
+  printf('  0x123456789ABC = %lld\n', hex0xLarge);
+  
+  // Test 4: Mixed case hex
+  printf('\nTest 4: Mixed case hex\n');
+  hex0x := 0xAbCdEf;
+  printf('  0xAbCdEf = %d (expect 11259375)\n', hex0x);
+  
+  // Test 5: Float with exponent (E notation)
+  printf('\nTest 5: Float exponent notation\n');
+  floatExp1 := 1.0e5;
+  printf('  1.0e5 = %.1f (expect 100000.0)\n', floatExp1);
+  
+  floatExp2 := 2.5E3;
+  printf('  2.5E3 = %.1f (expect 2500.0)\n', floatExp2);
+  
+  floatExp3 := 1e10;
+  printf('  1e10 = %.0f\n', floatExp3);
+  
+  // Test 6: Negative exponents
+  printf('\nTest 6: Negative exponents\n');
+  floatExpNeg := 5.0e-2;
+  printf('  5.0e-2 = %f (expect 0.05)\n', floatExpNeg);
+  
+  floatExpNeg := 1.23E-4;
+  printf('  1.23E-4 = %f (expect 0.000123)\n', floatExpNeg);
+  
+  // Test 7: Positive exponent with explicit +
+  printf('\nTest 7: Explicit positive exponent\n');
+  floatExpPos := 3.0e+2;
+  printf('  3.0e+2 = %.1f (expect 300.0)\n', floatExpPos);
+  
+  // Test 8: Escape sequences in strings
+  printf('\nTest 8: Escape sequences\n');
+  printf('  Newline: line1\nline2\n');
+  printf('  Tab: col1\tcol2\n');
+  printf('  Carriage return test: ABC\rXY\n');
+  printf('  Backslash: C:\\path\\file\n');
+  printf('  Single quote: It\'s working\n');
+  printf('  Double quote: He said \"Hello\"\n');
+  printf('  Null char: ABC\0DEF (shows ABC only)\n');
+  
+  // Test 9: Hex escape in string
+  printf('\nTest 9: Hex escape \\xNN\n');
+  printf('  Hex 41 = \x41 (expect A)\n');
+  printf('  Hex 42 43 = \x42\x43 (expect BC)\n');
+  
+  // Test 10: Character literals (explicit cast for varargs)
+  printf('\nTest 10: Character literals\n');
+  printf('  Char A = %c\n', char('A'));
+  printf('  Char newline code = %d\n', char('\n'));
+  printf('  Char tab code = %d\n', char('\t'));
+  
+  printf('\n=== All Literal Tests Passed ===\n');
+end.

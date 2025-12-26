@@ -1,4 +1,4 @@
-{===============================================================================
+﻿{===============================================================================
   Pax™ Programming Language.
 
   Copyright © 2025-present tinyBigGAMES™ LLC
@@ -46,7 +46,9 @@ type
     procedure Error(const ANode: PASTNode; const ACode: string; const AMessage: string); overload;
     procedure Error(const ANode: PASTNode; const ACode: string; const AMessage: string; const AArgs: array of const); overload;
     procedure Warning(const ANode: PASTNode; const ACode: string; const AMessage: string); overload;
+    {$HINTS OFF}
     procedure Warning(const ANode: PASTNode; const ACode: string; const AMessage: string; const AArgs: array of const); overload;
+    {$HINTS ON}
 
     // Type resolution
     function ResolveType(const ANode: PASTNode): TPaxType;
@@ -106,6 +108,7 @@ type
 
     // Built-in registration
     procedure RegisterTestBuiltins();
+    procedure RegisterPaxConstants();
 
   public
     constructor Create(); override;
@@ -196,6 +199,9 @@ begin
 
   // Register test assertion built-ins
   RegisterTestBuiltins();
+
+  // Register PAX version constants
+  RegisterPaxConstants();
 
   if ARoot^.Kind = nkModule then
     CheckModule(ARoot);
@@ -475,7 +481,7 @@ begin
   if GetASTChildCount(ANode) > 0 then
   begin
     LElementType := ResolveType(GetASTChild(ANode, 0));
-    Result := FTypes.CreatePointerType(LElementType);
+    Result := FTypes.CreatePointerType(LElementType, ANode^.BoolVal);  // BoolVal = IsConstTarget
   end
   else
     Result := FTypes.PointerType; // Untyped pointer
@@ -1210,6 +1216,9 @@ begin
       begin
         if LLeftType.IsNumeric() and LRightType.IsNumeric() then
           Result := GetCommonType(LLeftType, LRightType)
+        // Set operations: + (union), - (difference), * (intersection)
+        else if LLeftType.IsSet() and LRightType.IsSet() and (LOp in [opAdd, opSub, opMul]) then
+          Result := LLeftType
         else if LLeftType.IsString() and LRightType.IsString() and (LOp = opAdd) then
           Result := LLeftType
         else if LLeftType.IsString() and LRightType.IsChar() and (LOp = opAdd) then
@@ -1455,6 +1464,7 @@ var
   LParam: TPaxParam;
   LArgCount, LParamCount: Integer;
   LTargetType, LSourceType: TPaxType;
+  LSourceNode: PASTNode;
 begin
   Result := FTypes.ErrorType;
 
@@ -1478,7 +1488,8 @@ begin
       end;
 
       LTargetType := LSym.SymbolType;
-      LSourceType := CheckExpression(GetASTChild(ANode, 1));
+      LSourceNode := GetASTChild(ANode, 1);
+      LSourceType := CheckExpression(LSourceNode);
 
       // Validate cast (same logic as CheckTypeCast)
       if LTargetType.IsNumeric() and LSourceType.IsNumeric() then
@@ -1505,6 +1516,12 @@ begin
       // wstring -> pointer to wchar: extract data pointer
       else if (LSourceType.Kind = tkWString) and LTargetType.IsPointer() and
               (LTargetType.ElementType <> nil) and (LTargetType.ElementType.Kind = tkWChar) then
+        Result := LTargetType
+      // string literal -> char: extract first character
+      else if LTargetType.IsChar() and (LSourceNode^.Kind = nkStrLiteral) then
+        Result := LTargetType
+      // wide string literal -> wchar: extract first character
+      else if LTargetType.IsWChar() and (LSourceNode^.Kind = nkWideStrLiteral) then
         Result := LTargetType
       else if not LTargetType.IsError() and not LSourceType.IsError() then
         Error(ANode, ERR_SEMANTIC_INVALID_CAST, RSTypeCannotCast, [GetTypeName(LSourceType), GetTypeName(LTargetType)])
@@ -1563,6 +1580,7 @@ end;
 function TPaxChecker.CheckTypeCast(const ANode: PASTNode): TPaxType;
 var
   LTargetType, LSourceType: TPaxType;
+  LSourceNode: PASTNode;
 begin
   Result := FTypes.ErrorType;
 
@@ -1570,7 +1588,8 @@ begin
     Exit;
 
   LTargetType := ResolveType(GetASTChild(ANode, 0));
-  LSourceType := CheckExpression(GetASTChild(ANode, 1));
+  LSourceNode := GetASTChild(ANode, 1);
+  LSourceType := CheckExpression(LSourceNode);
 
   // Basic cast validation
   if LTargetType.IsNumeric() and LSourceType.IsNumeric() then
@@ -1597,6 +1616,12 @@ begin
   // wstring -> pointer to wchar: extract data pointer
   else if (LSourceType.Kind = tkWString) and LTargetType.IsPointer() and
           (LTargetType.ElementType <> nil) and (LTargetType.ElementType.Kind = tkWChar) then
+    Result := LTargetType
+  // string literal -> char: extract first character
+  else if LTargetType.IsChar() and (LSourceNode^.Kind = nkStrLiteral) then
+    Result := LTargetType
+  // wide string literal -> wchar: extract first character
+  else if LTargetType.IsWChar() and (LSourceNode^.Kind = nkWideStrLiteral) then
     Result := LTargetType
   else if not LTargetType.IsError() and not LSourceType.IsError() then
     Error(ANode, ERR_SEMANTIC_INVALID_CAST, RSTypeCannotCast, [GetTypeName(LSourceType), GetTypeName(LTargetType)]);
@@ -1767,6 +1792,36 @@ begin
   LRoutineType := FTypes.CreateRoutineType(FTypes.VoidType);
   LRoutineType.AddParam('message', FTypes.PCharType, pmConst);
   LSym.SymbolType := LRoutineType;
+end;
+
+procedure TPaxChecker.RegisterPaxConstants();
+var
+  LSym: TSymbol;
+begin
+  // PAX_MAJOR_VERSION: int32
+  LSym := FSymbols.Define('PAX_MAJOR_VERSION', skConst);
+  LSym.SymbolType := FTypes.Int32Type;
+  LSym.Value := PAX_MAJOR_VERSION;
+
+  // PAX_MINOR_VERSION: int32
+  LSym := FSymbols.Define('PAX_MINOR_VERSION', skConst);
+  LSym.SymbolType := FTypes.Int32Type;
+  LSym.Value := PAX_MINOR_VERSION;
+
+  // PAX_PATCH_VERSION: int32
+  LSym := FSymbols.Define('PAX_PATCH_VERSION', skConst);
+  LSym.SymbolType := FTypes.Int32Type;
+  LSym.Value := PAX_PATCH_VERSION;
+
+  // PAX_VERSION: int32 (combined: major*10000 + minor*100 + patch)
+  LSym := FSymbols.Define('PAX_VERSION', skConst);
+  LSym.SymbolType := FTypes.Int32Type;
+  LSym.Value := PAX_VERSION;
+
+  // PAX_VERSION_STR: pointer to char (string literal)
+  LSym := FSymbols.Define('PAX_VERSION_STR', skConst);
+  LSym.SymbolType := FTypes.PCharType;
+  LSym.StringValue := PAX_VERSION_STR;
 end;
 
 end.

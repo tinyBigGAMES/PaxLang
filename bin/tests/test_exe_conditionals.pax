@@ -1,0 +1,122 @@
+module exe test_exe_conditionals;
+
+// Test conditional compilation directives
+
+routine printf(const fmt: pointer to char; ...): int32; external 'msvcrt.dll';
+
+// Define symbols
+#define DEBUG
+#define VERSION 100
+#define PLATFORM_WIN
+
+begin
+  printf('=== Conditional Compilation Test ===\n\n');
+  
+  // Test 1: #ifdef
+  printf('Test 1: #ifdef\n');
+  #ifdef DEBUG
+  printf('  DEBUG is defined\n');
+  #endif
+  
+  #ifdef UNDEFINED_SYMBOL
+  printf('  ERROR: This should not print\n');
+  #endif
+  
+  // Test 2: #ifndef
+  printf('\nTest 2: #ifndef\n');
+  #ifndef UNDEFINED_SYMBOL
+  printf('  UNDEFINED_SYMBOL is not defined (correct)\n');
+  #endif
+  
+  #ifndef DEBUG
+  printf('  ERROR: This should not print\n');
+  #endif
+  
+  // Test 3: #ifdef with #else
+  printf('\nTest 3: #ifdef with #else\n');
+  #ifdef DEBUG
+  printf('  DEBUG path taken\n');
+  #else
+  printf('  Release path taken\n');
+  #endif
+  
+  #ifdef MISSING
+  printf('  ERROR: MISSING path\n');
+  #else
+  printf('  MISSING not defined, else path taken (correct)\n');
+  #endif
+  
+  // Test 4: #undef
+  printf('\nTest 4: #undef\n');
+  #ifdef PLATFORM_WIN
+  printf('  PLATFORM_WIN is defined\n');
+  #endif
+  
+  #undef PLATFORM_WIN
+  
+  #ifdef PLATFORM_WIN
+  printf('  ERROR: PLATFORM_WIN should be undefined\n');
+  #else
+  printf('  PLATFORM_WIN successfully undefined\n');
+  #endif
+  
+  // Test 5: Nested conditionals
+  printf('\nTest 5: Nested conditionals\n');
+  #ifdef DEBUG
+    printf('  Outer: DEBUG defined\n');
+    #ifdef VERSION
+      printf('  Inner: VERSION also defined\n');
+    #endif
+  #endif
+  
+  // Test 6: #if with expressions
+  printf('\nTest 6: #if with defined()\n');
+  #if defined(DEBUG)
+  printf('  defined(DEBUG) is true\n');
+  #endif
+  
+  #if not defined(MISSING)
+  printf('  not defined(MISSING) is true\n');
+  #endif
+  
+  // Test 7: #elif chains
+  printf('\nTest 7: #elif chains\n');
+  #define MODE 2
+  
+  #if MODE = 1
+  printf('  Mode is 1\n');
+  #elif MODE = 2
+  printf('  Mode is 2 (correct)\n');
+  #elif MODE = 3
+  printf('  Mode is 3\n');
+  #else
+  printf('  Unknown mode\n');
+  #endif
+  
+  // Test 8: PAX compiler detection (preprocessor)
+  printf('\nTest 8: PAX compiler detection (preprocessor)\n');
+  #ifdef PAX
+  printf('  PAX is defined (correct)\n');
+  #if PAX_MAJOR_VERSION = 0
+  printf('  PAX_MAJOR_VERSION = 0 (correct)\n');
+  #endif
+  #if PAX_MINOR_VERSION = 1
+  printf('  PAX_MINOR_VERSION = 1 (correct)\n');
+  #endif
+  #if PAX_PATCH_VERSION = 0
+  printf('  PAX_PATCH_VERSION = 0 (correct)\n');
+  #endif
+  #else
+  printf('  ERROR: PAX should be defined\n');
+  #endif
+  
+  // Test 9: PAX version constants as expressions
+  printf('\nTest 9: PAX version constants as expressions\n');
+  printf('  PAX_MAJOR_VERSION = %d\n', PAX_MAJOR_VERSION);
+  printf('  PAX_MINOR_VERSION = %d\n', PAX_MINOR_VERSION);
+  printf('  PAX_PATCH_VERSION = %d\n', PAX_PATCH_VERSION);
+  printf('  PAX_VERSION = %d\n', PAX_VERSION);
+  printf('  PAX_VERSION_STR = %s\n', PAX_VERSION_STR);
+  
+  printf('\n=== All Conditional Tests Passed ===\n');
+end.

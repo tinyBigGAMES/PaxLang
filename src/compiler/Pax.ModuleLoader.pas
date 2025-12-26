@@ -1,4 +1,4 @@
-{===============================================================================
+﻿{===============================================================================
   Pax™ Programming Language.
 
   Copyright © 2025-present tinyBigGAMES™ LLC
@@ -73,7 +73,9 @@ type
 
     function FindModuleFile(const AModuleName: string): string;
     function DoCompileModule(const AFilePath: string): TModuleInfo;
+    {$HINTS OFF}
     procedure Output(const AMsg: string); overload;
+    {$HINTS ON}
     procedure Output(const AMsg: string; const AArgs: array of const); overload;
 
   public

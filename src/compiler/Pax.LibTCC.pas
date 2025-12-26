@@ -259,7 +259,7 @@ begin
     Exit;
   end;
 
-  LStartIdx := 0;
+
   if (Length(LParts) >= 4) and
      (Length(LParts[0]) = 1) and
      CharInSet(LParts[0][1], ['A'..'Z', 'a'..'z']) and
@@ -498,19 +498,26 @@ var
 begin
   Result := False;
 
-  if not FOutputSet or (FWorkflowState > wsCompiled) then
-    Exit;
-
   LOption := AOption.Trim.ToLower;
-  if (LOption = '-b') or LOption.StartsWith('-bt') then
+
+  // -g must be set BEFORE output type (TCC requirement)
+  if LOption = '-g' then
   begin
-    Exit;
+    if FWorkflowState > wsNew then
+      Exit;
+  end
+  else
+  begin
+    if not FOutputSet or (FWorkflowState > wsCompiled) then
+      Exit;
   end;
+
+  // Block backtrace options (not supported in this context)
+  if (LOption = '-b') or LOption.StartsWith('-bt') then
+    Exit;
 
   if tcc_set_options(FState, AsUTF8(AOption)) = 0 then
-  begin
     Result := True;
-  end;
 end;
 
 function TLibTCC.SetSubsystem(const ASubsystem: TLibTCCSubsystem): Boolean;

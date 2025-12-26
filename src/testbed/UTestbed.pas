@@ -121,6 +121,7 @@ begin
 
   LCompiler := TPaxCompiler.Create();
   try
+
     LCompiler.AddModuleSearchPath('tests');
 
     LCompiler.Verbose := True;
@@ -139,7 +140,8 @@ procedure TestFiles();
 var
   LNum: Integer;
 begin
-  LNum := 1;
+  LNum := 28;
+  //LNum := 1;
 
   case LNum of
     // STANDALONE EXE TESTS (no dependencies, any order)
@@ -163,20 +165,30 @@ begin
     18: TestFile('test_exe_emoji');
     19: TestFile('test_exe_unittest');
     20: TestFile('test_exe_verinfo');
+    21: TestFile('test_exe_routine_types');
+    22: TestFile('test_exe_cmdline');
+    23: TestFile('test_exe_conditionals');
+    24: TestFile('test_exe_raw_wide');
+    25: TestFile('test_exe_set_types');
+    26: TestFile('test_exe_compound_assign');
+    27: TestFile('test_exe_literals');
+    28: TestFile('test_exe_directives');
+    29: TestFile('test_exe_type_alias');
+    30: TestFile('test_exe_edge_cases');
 
     // ERROR TESTS
-    21: TestFile('test_exe_aligned_error');
-    22: TestFile('test_exe_badtest');
+    31: TestFile('test_exe_aligned_error');
+    32: TestFile('test_exe_badtest');
 
     // LIB TESTS (lib auto-compiles when EXE imports it)
-    23: TestFile('test_exe_imports');
-    24: TestFile('test_lib_math');
-    25: TestFile('test_lib_math_exe');
-    26: TestFile('test_exe_unittest');
+    33: TestFile('test_exe_imports');
+    34: TestFile('test_lib_math');
+    35: TestFile('test_lib_math_exe');
+    36: TestFile('test_exe_unittest');
 
     // DLL TESTS (must build DLL first, then EXE)
-    27: TestFile('test_dll_strings');      // Step 1: Build DLL
-    28: TestFile('test_dll_strings_exe');  // Step 2: Build EXE
+    37: TestFile('test_dll_strings');      // Step 1: Build DLL
+    38: TestFile('test_dll_strings_exe');  // Step 2: Build EXE
   end;
 end;
 
