@@ -43,6 +43,7 @@ end.
 - **Varargs support** - Full C interop with printf-style functions
 - **Built-in testing** - Integrated unit test framework
 - **Version info** - Embed metadata and icons in executables
+- **C header import** - Convert C headers to Pax modules automatically
 
 ## Language Overview
 
@@ -227,6 +228,33 @@ begin
   if today in weekdays then
     // It's a weekday
   end;
+end.
+```
+
+### Enumerations
+
+```pax
+type
+  TColor = (
+    clRed,
+    clGreen,
+    clBlue
+  );
+
+  TFlags = (
+    flagNone = 0,
+    flagRead = 1,
+    flagWrite = 2,
+    flagExecute = 4
+  );
+
+var
+  color: TColor;
+  flags: TFlags;
+
+begin
+  color := clGreen;
+  flags := flagRead;
 end.
 ```
 
@@ -552,13 +580,13 @@ end.
 | Directive | Description |
 |-----------|-------------|
 | #subsystem console/gui | PE subsystem (default: console) |
-| #library "name" | Link a library |
-| #librarypath "path" | Add library search path |
-| #includepath "path" | Add C include path |
-| #addfile "file" | Add .c, .obj, .lib, .dll to link |
-| #modulepath "path" | Add module search path |
-| #outputpath "path" | Set output directory |
-| #generatedpath "path" | Set generated C files directory |
+| #library 'name' | Link a library |
+| #librarypath 'path' | Add library search path |
+| #includepath 'path' | Add C include path |
+| #addfile 'file' | Add .c, .obj, .lib, .dll to link |
+| #modulepath 'path' | Add module search path |
+| #outputpath 'path' | Set output directory |
+| #generatedpath 'path' | Set generated C files directory |
 
 ### Preprocessor Directives
 
@@ -580,7 +608,7 @@ end.
 | #debug | Enable debug info (STABS format) |
 | #unittestmode on/off | Enable unit test mode |
 | #maxerrors N | Max errors before stopping |
-| #option "flag" | Pass raw TCC option |
+| #option 'flag' | Pass raw TCC option |
 
 ### Version Info Directives
 
@@ -590,12 +618,33 @@ end.
 | #vimajor N | Major version number |
 | #viminor N | Minor version number |
 | #vipatch N | Patch version number |
-| #viproductname "name" | Product name |
-| #videscription "desc" | File description |
-| #vifilename "name" | Original filename |
-| #vicompanyname "name" | Company name |
-| #vicopyright "text" | Copyright notice |
-| #exeicon "path" | Executable icon |
+| #viproductname 'name' | Product name |
+| #videscription 'desc' | File description |
+| #vifilename 'name' | Original filename |
+| #vicompanyname 'name' | Company name |
+| #vicopyright 'text' | Copyright notice |
+| #exeicon 'path' | Executable icon |
+
+## C Header Importer
+
+Pax includes a built-in C header importer that converts C headers into Pax module source code. It uses TCC for preprocessing (expanding macros, includes) then parses the result to generate Pax declarations.
+
+```delphi
+LImporter := TPaxCImporter.Create();
+LImporter.SetModuleName('raylib');
+LImporter.SetDllName('raylib.dll');
+LImporter.AddIncludePath('path/to/headers');
+LImporter.AddExcludedType('va_list');
+LImporter.ImportHeader('raylib.h');
+LImporter.Free();
+```
+
+The importer handles:
+- Structs, unions, and typedefs
+- Function declarations with varargs
+- Enumerations with explicit values
+- Pointer types and arrays
+- Forward declarations for opaque types
 
 ## Architecture
 
@@ -621,6 +670,8 @@ The compiler is built in Delphi with a clean pipeline architecture:
 | Pax.IATHook | IAT hooking for transparent file redirection |
 | Pax.LibTCC | TinyCC (libtcc) integration |
 | Pax.ModuleLoader | Module dependency resolution |
+| Pax.Errors | Error types, codes, and diagnostic formatting |
+| Pax.CImporter | C header to Pax module converter |
 
 ## Status
 
@@ -647,6 +698,8 @@ The core compiler is functional and can produce working executables, DLLs, and s
 - Case statement ranges
 - Conditional compilation
 - PAX compiler constants
+- Enumeration types
+- C header importer
 
 ## Building
 
