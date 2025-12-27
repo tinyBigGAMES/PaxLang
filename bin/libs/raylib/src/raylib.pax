@@ -1,0 +1,1271 @@
+﻿module lib raylib;
+
+#librarypath 'libs/raylib/bin'
+
+#copydll 'libs/raylib/bin/raylib.dll'
+
+(* Forward declarations (opaque types) *)
+public type
+  rAudioBuffer = record end;
+  rAudioProcessor = record end;
+
+(* Types *)
+public type
+  TraceLogCallback = routine(const AlogLevel: Int32; const Atext: pointer to Char; const Aargs: Pointer);
+  LoadFileDataCallback = routine(const AfileName: pointer to Char; const AdataSize: pointer to Int32): pointer to UInt8;
+  SaveFileDataCallback = routine(const AfileName: pointer to Char; const Adata: pointer to Pointer; const AdataSize: Int32): Boolean;
+  LoadFileTextCallback = routine(const AfileName: pointer to Char): pointer to Char;
+  SaveFileTextCallback = routine(const AfileName: pointer to Char; const Atext: pointer to Char): Boolean;
+  AudioCallback = routine(const AbufferData: pointer to Pointer; const Aframes: UInt32);
+  
+  Vector2 = record
+    x: Float32;
+    y: Float32;
+  end;
+  
+  Vector3 = record
+    x: Float32;
+    y: Float32;
+    z: Float32;
+  end;
+  
+  Vector4 = record
+    x: Float32;
+    y: Float32;
+    z: Float32;
+    w: Float32;
+  end;
+  
+  Matrix = record
+    m0: Float32;
+    m4: Float32;
+    m8: Float32;
+    m12: Float32;
+    m1: Float32;
+    m5: Float32;
+    m9: Float32;
+    m13: Float32;
+    m2: Float32;
+    m6: Float32;
+    m10: Float32;
+    m14: Float32;
+    m3: Float32;
+    m7: Float32;
+    m11: Float32;
+    m15: Float32;
+  end;
+  
+  Color = record
+    r: UInt8;
+    g: UInt8;
+    b: UInt8;
+    a: UInt8;
+  end;
+  
+  Rectangle = record
+    x: Float32;
+    y: Float32;
+    width: Float32;
+    height: Float32;
+  end;
+  
+  Image = record
+    data: pointer to Pointer;
+    width: Int32;
+    height: Int32;
+    mipmaps: Int32;
+    format: Int32;
+  end;
+  
+  Texture = record
+    id: UInt32;
+    width: Int32;
+    height: Int32;
+    mipmaps: Int32;
+    format: Int32;
+  end;
+  
+  RenderTexture = record
+    id: UInt32;
+    texture: Texture;
+    depth: Texture;
+  end;
+  
+  NPatchInfo = record
+    source: Rectangle;
+    left: Int32;
+    top: Int32;
+    right: Int32;
+    bottom: Int32;
+    layout: Int32;
+  end;
+  
+  GlyphInfo = record
+    value: Int32;
+    offsetX: Int32;
+    offsetY: Int32;
+    advanceX: Int32;
+    image: Image;
+  end;
+  
+  Font = record
+    baseSize: Int32;
+    glyphCount: Int32;
+    glyphPadding: Int32;
+    texture: Texture;
+    recs: pointer to Rectangle;
+    glyphs: pointer to GlyphInfo;
+  end;
+  
+  Camera3D = record
+    position: Vector3;
+    target: Vector3;
+    up: Vector3;
+    fovy: Float32;
+    projection: Int32;
+  end;
+  
+  Camera2D = record
+    offset: Vector2;
+    target: Vector2;
+    rotation: Float32;
+    zoom: Float32;
+  end;
+  
+  Mesh = record
+    vertexCount: Int32;
+    triangleCount: Int32;
+    vertices: pointer to Float32;
+    texcoords: pointer to Float32;
+    texcoords2: pointer to Float32;
+    normals: pointer to Float32;
+    tangents: pointer to Float32;
+    colors: pointer to UInt8;
+    indices: pointer to UInt16;
+    animVertices: pointer to Float32;
+    animNormals: pointer to Float32;
+    boneIds: pointer to UInt8;
+    boneWeights: pointer to Float32;
+    boneMatrices: pointer to Matrix;
+    boneCount: Int32;
+    vaoId: UInt32;
+    vboId: pointer to UInt32;
+  end;
+  
+  Shader = record
+    id: UInt32;
+    locs: pointer to Int32;
+  end;
+  
+  MaterialMap = record
+    texture: Texture;
+    color: Color;
+    value: Float32;
+  end;
+  
+  Material = record
+    shader: Shader;
+    maps: pointer to MaterialMap;
+    params: array[0..3] of Float32;
+  end;
+  
+  Transform = record
+    translation: Vector3;
+    rotation: Vector4;
+    scale: Vector3;
+  end;
+  
+  BoneInfo = record
+    name: array[0..31] of Char;
+    parent: Int32;
+  end;
+  
+  Model = record
+    transform: Matrix;
+    meshCount: Int32;
+    materialCount: Int32;
+    meshes: pointer to Mesh;
+    materials: pointer to Material;
+    meshMaterial: pointer to Int32;
+    boneCount: Int32;
+    bones: pointer to BoneInfo;
+    bindPose: pointer to Transform;
+  end;
+  
+  ModelAnimation = record
+    boneCount: Int32;
+    frameCount: Int32;
+    bones: pointer to BoneInfo;
+    framePoses: pointer to pointer to Transform;
+    name: array[0..31] of Char;
+  end;
+  
+  Ray = record
+    position: Vector3;
+    direction: Vector3;
+  end;
+  
+  RayCollision = record
+    hit: Boolean;
+    distance: Float32;
+    point: Vector3;
+    normal: Vector3;
+  end;
+  
+  BoundingBox = record
+    min: Vector3;
+    max: Vector3;
+  end;
+  
+  Wave = record
+    frameCount: UInt32;
+    sampleRate: UInt32;
+    sampleSize: UInt32;
+    channels: UInt32;
+    data: pointer to Pointer;
+  end;
+  
+  AudioStream = record
+    buffer: pointer to rAudioBuffer;
+    processor: pointer to rAudioProcessor;
+    sampleRate: UInt32;
+    sampleSize: UInt32;
+    channels: UInt32;
+  end;
+  
+  Sound = record
+    stream: AudioStream;
+    frameCount: UInt32;
+  end;
+  
+  Music = record
+    stream: AudioStream;
+    frameCount: UInt32;
+    looping: Boolean;
+    ctxType: Int32;
+    ctxData: pointer to Pointer;
+  end;
+  
+  VrDeviceInfo = record
+    hResolution: Int32;
+    vResolution: Int32;
+    hScreenSize: Float32;
+    vScreenSize: Float32;
+    eyeToScreenDistance: Float32;
+    lensSeparationDistance: Float32;
+    interpupillaryDistance: Float32;
+    lensDistortionValues: array[0..3] of Float32;
+    chromaAbCorrection: array[0..3] of Float32;
+  end;
+  
+  VrStereoConfig = record
+    projection: array[0..1] of Matrix;
+    viewOffset: array[0..1] of Matrix;
+    leftLensCenter: array[0..1] of Float32;
+    rightLensCenter: array[0..1] of Float32;
+    leftScreenCenter: array[0..1] of Float32;
+    rightScreenCenter: array[0..1] of Float32;
+    scale: array[0..1] of Float32;
+    scaleIn: array[0..1] of Float32;
+  end;
+  
+  FilePathList = record
+    capacity: UInt32;
+    count: UInt32;
+    paths: pointer to pointer to Char;
+  end;
+  
+  AutomationEvent = record
+    frame: UInt32;
+    type_: UInt32;
+    params: array[0..3] of Int32;
+  end;
+  
+  AutomationEventList = record
+    capacity: UInt32;
+    count: UInt32;
+    events: pointer to AutomationEvent;
+  end;
+  
+  Quaternion = Vector4;
+  Texture2D = Texture;
+  TextureCubemap = Texture;
+  RenderTexture2D = RenderTexture;
+  Camera = Camera3D;
+  
+  ConfigFlags = (
+    FLAG_VSYNC_HINT = 64,
+    FLAG_FULLSCREEN_MODE = 2,
+    FLAG_WINDOW_RESIZABLE = 4,
+    FLAG_WINDOW_UNDECORATED = 8,
+    FLAG_WINDOW_HIDDEN = 128,
+    FLAG_WINDOW_MINIMIZED = 512,
+    FLAG_WINDOW_MAXIMIZED = 1024,
+    FLAG_WINDOW_UNFOCUSED = 2048,
+    FLAG_WINDOW_TOPMOST = 4096,
+    FLAG_WINDOW_ALWAYS_RUN = 256,
+    FLAG_WINDOW_TRANSPARENT = 16,
+    FLAG_WINDOW_HIGHDPI = 8192,
+    FLAG_WINDOW_MOUSE_PASSTHROUGH = 16384,
+    FLAG_BORDERLESS_WINDOWED_MODE = 32768,
+    FLAG_MSAA_4X_HINT = 32,
+    FLAG_INTERLACED_HINT = 65536
+  );
+  
+  TraceLogLevel = (
+    LOG_ALL = 0,
+    LOG_TRACE,
+    LOG_DEBUG,
+    LOG_INFO,
+    LOG_WARNING,
+    LOG_ERROR,
+    LOG_FATAL,
+    LOG_NONE
+  );
+  
+  KeyboardKey = (
+    KEY_NULL = 0,
+    KEY_APOSTROPHE = 39,
+    KEY_COMMA = 44,
+    KEY_MINUS = 45,
+    KEY_PERIOD = 46,
+    KEY_SLASH = 47,
+    KEY_ZERO = 48,
+    KEY_ONE = 49,
+    KEY_TWO = 50,
+    KEY_THREE = 51,
+    KEY_FOUR = 52,
+    KEY_FIVE = 53,
+    KEY_SIX = 54,
+    KEY_SEVEN = 55,
+    KEY_EIGHT = 56,
+    KEY_NINE = 57,
+    KEY_SEMICOLON = 59,
+    KEY_EQUAL = 61,
+    KEY_A = 65,
+    KEY_B = 66,
+    KEY_C = 67,
+    KEY_D = 68,
+    KEY_E = 69,
+    KEY_F = 70,
+    KEY_G = 71,
+    KEY_H = 72,
+    KEY_I = 73,
+    KEY_J = 74,
+    KEY_K = 75,
+    KEY_L = 76,
+    KEY_M = 77,
+    KEY_N = 78,
+    KEY_O = 79,
+    KEY_P = 80,
+    KEY_Q = 81,
+    KEY_R = 82,
+    KEY_S = 83,
+    KEY_T = 84,
+    KEY_U = 85,
+    KEY_V = 86,
+    KEY_W = 87,
+    KEY_X = 88,
+    KEY_Y = 89,
+    KEY_Z = 90,
+    KEY_LEFT_BRACKET = 91,
+    KEY_BACKSLASH = 92,
+    KEY_RIGHT_BRACKET = 93,
+    KEY_GRAVE = 96,
+    KEY_SPACE = 32,
+    KEY_ESCAPE = 256,
+    KEY_ENTER = 257,
+    KEY_TAB = 258,
+    KEY_BACKSPACE = 259,
+    KEY_INSERT = 260,
+    KEY_DELETE = 261,
+    KEY_RIGHT = 262,
+    KEY_LEFT = 263,
+    KEY_DOWN = 264,
+    KEY_UP = 265,
+    KEY_PAGE_UP = 266,
+    KEY_PAGE_DOWN = 267,
+    KEY_HOME = 268,
+    KEY_END = 269,
+    KEY_CAPS_LOCK = 280,
+    KEY_SCROLL_LOCK = 281,
+    KEY_NUM_LOCK = 282,
+    KEY_PRINT_SCREEN = 283,
+    KEY_PAUSE = 284,
+    KEY_F1 = 290,
+    KEY_F2 = 291,
+    KEY_F3 = 292,
+    KEY_F4 = 293,
+    KEY_F5 = 294,
+    KEY_F6 = 295,
+    KEY_F7 = 296,
+    KEY_F8 = 297,
+    KEY_F9 = 298,
+    KEY_F10 = 299,
+    KEY_F11 = 300,
+    KEY_F12 = 301,
+    KEY_LEFT_SHIFT = 340,
+    KEY_LEFT_CONTROL = 341,
+    KEY_LEFT_ALT = 342,
+    KEY_LEFT_SUPER = 343,
+    KEY_RIGHT_SHIFT = 344,
+    KEY_RIGHT_CONTROL = 345,
+    KEY_RIGHT_ALT = 346,
+    KEY_RIGHT_SUPER = 347,
+    KEY_KB_MENU = 348,
+    KEY_KP_0 = 320,
+    KEY_KP_1 = 321,
+    KEY_KP_2 = 322,
+    KEY_KP_3 = 323,
+    KEY_KP_4 = 324,
+    KEY_KP_5 = 325,
+    KEY_KP_6 = 326,
+    KEY_KP_7 = 327,
+    KEY_KP_8 = 328,
+    KEY_KP_9 = 329,
+    KEY_KP_DECIMAL = 330,
+    KEY_KP_DIVIDE = 331,
+    KEY_KP_MULTIPLY = 332,
+    KEY_KP_SUBTRACT = 333,
+    KEY_KP_ADD = 334,
+    KEY_KP_ENTER = 335,
+    KEY_KP_EQUAL = 336,
+    KEY_BACK = 4,
+    KEY_MENU = 5,
+    KEY_VOLUME_UP = 24,
+    KEY_VOLUME_DOWN = 25
+  );
+  
+  MouseButton = (
+    MOUSE_BUTTON_LEFT = 0,
+    MOUSE_BUTTON_RIGHT = 1,
+    MOUSE_BUTTON_MIDDLE = 2,
+    MOUSE_BUTTON_SIDE = 3,
+    MOUSE_BUTTON_EXTRA = 4,
+    MOUSE_BUTTON_FORWARD = 5,
+    MOUSE_BUTTON_BACK = 6
+  );
+  
+  MouseCursor = (
+    MOUSE_CURSOR_DEFAULT = 0,
+    MOUSE_CURSOR_ARROW = 1,
+    MOUSE_CURSOR_IBEAM = 2,
+    MOUSE_CURSOR_CROSSHAIR = 3,
+    MOUSE_CURSOR_POINTING_HAND = 4,
+    MOUSE_CURSOR_RESIZE_EW = 5,
+    MOUSE_CURSOR_RESIZE_NS = 6,
+    MOUSE_CURSOR_RESIZE_NWSE = 7,
+    MOUSE_CURSOR_RESIZE_NESW = 8,
+    MOUSE_CURSOR_RESIZE_ALL = 9,
+    MOUSE_CURSOR_NOT_ALLOWED = 10
+  );
+  
+  GamepadButton = (
+    GAMEPAD_BUTTON_UNKNOWN = 0,
+    GAMEPAD_BUTTON_LEFT_FACE_UP,
+    GAMEPAD_BUTTON_LEFT_FACE_RIGHT,
+    GAMEPAD_BUTTON_LEFT_FACE_DOWN,
+    GAMEPAD_BUTTON_LEFT_FACE_LEFT,
+    GAMEPAD_BUTTON_RIGHT_FACE_UP,
+    GAMEPAD_BUTTON_RIGHT_FACE_RIGHT,
+    GAMEPAD_BUTTON_RIGHT_FACE_DOWN,
+    GAMEPAD_BUTTON_RIGHT_FACE_LEFT,
+    GAMEPAD_BUTTON_LEFT_TRIGGER_1,
+    GAMEPAD_BUTTON_LEFT_TRIGGER_2,
+    GAMEPAD_BUTTON_RIGHT_TRIGGER_1,
+    GAMEPAD_BUTTON_RIGHT_TRIGGER_2,
+    GAMEPAD_BUTTON_MIDDLE_LEFT,
+    GAMEPAD_BUTTON_MIDDLE,
+    GAMEPAD_BUTTON_MIDDLE_RIGHT,
+    GAMEPAD_BUTTON_LEFT_THUMB,
+    GAMEPAD_BUTTON_RIGHT_THUMB
+  );
+  
+  GamepadAxis = (
+    GAMEPAD_AXIS_LEFT_X = 0,
+    GAMEPAD_AXIS_LEFT_Y = 1,
+    GAMEPAD_AXIS_RIGHT_X = 2,
+    GAMEPAD_AXIS_RIGHT_Y = 3,
+    GAMEPAD_AXIS_LEFT_TRIGGER = 4,
+    GAMEPAD_AXIS_RIGHT_TRIGGER = 5
+  );
+  
+  MaterialMapIndex = (
+    MATERIAL_MAP_ALBEDO = 0,
+    MATERIAL_MAP_METALNESS,
+    MATERIAL_MAP_NORMAL,
+    MATERIAL_MAP_ROUGHNESS,
+    MATERIAL_MAP_OCCLUSION,
+    MATERIAL_MAP_EMISSION,
+    MATERIAL_MAP_HEIGHT,
+    MATERIAL_MAP_CUBEMAP,
+    MATERIAL_MAP_IRRADIANCE,
+    MATERIAL_MAP_PREFILTER,
+    MATERIAL_MAP_BRDF
+  );
+  
+  ShaderLocationIndex = (
+    SHADER_LOC_VERTEX_POSITION = 0,
+    SHADER_LOC_VERTEX_TEXCOORD01,
+    SHADER_LOC_VERTEX_TEXCOORD02,
+    SHADER_LOC_VERTEX_NORMAL,
+    SHADER_LOC_VERTEX_TANGENT,
+    SHADER_LOC_VERTEX_COLOR,
+    SHADER_LOC_MATRIX_MVP,
+    SHADER_LOC_MATRIX_VIEW,
+    SHADER_LOC_MATRIX_PROJECTION,
+    SHADER_LOC_MATRIX_MODEL,
+    SHADER_LOC_MATRIX_NORMAL,
+    SHADER_LOC_VECTOR_VIEW,
+    SHADER_LOC_COLOR_DIFFUSE,
+    SHADER_LOC_COLOR_SPECULAR,
+    SHADER_LOC_COLOR_AMBIENT,
+    SHADER_LOC_MAP_ALBEDO,
+    SHADER_LOC_MAP_METALNESS,
+    SHADER_LOC_MAP_NORMAL,
+    SHADER_LOC_MAP_ROUGHNESS,
+    SHADER_LOC_MAP_OCCLUSION,
+    SHADER_LOC_MAP_EMISSION,
+    SHADER_LOC_MAP_HEIGHT,
+    SHADER_LOC_MAP_CUBEMAP,
+    SHADER_LOC_MAP_IRRADIANCE,
+    SHADER_LOC_MAP_PREFILTER,
+    SHADER_LOC_MAP_BRDF,
+    SHADER_LOC_VERTEX_BONEIDS,
+    SHADER_LOC_VERTEX_BONEWEIGHTS,
+    SHADER_LOC_BONE_MATRICES
+  );
+  
+  ShaderUniformDataType = (
+    SHADER_UNIFORM_FLOAT = 0,
+    SHADER_UNIFORM_VEC2,
+    SHADER_UNIFORM_VEC3,
+    SHADER_UNIFORM_VEC4,
+    SHADER_UNIFORM_INT,
+    SHADER_UNIFORM_IVEC2,
+    SHADER_UNIFORM_IVEC3,
+    SHADER_UNIFORM_IVEC4,
+    SHADER_UNIFORM_SAMPLER2D
+  );
+  
+  ShaderAttributeDataType = (
+    SHADER_ATTRIB_FLOAT = 0,
+    SHADER_ATTRIB_VEC2,
+    SHADER_ATTRIB_VEC3,
+    SHADER_ATTRIB_VEC4
+  );
+  
+  PixelFormat = (
+    PIXELFORMAT_UNCOMPRESSED_GRAYSCALE = 1,
+    PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA,
+    PIXELFORMAT_UNCOMPRESSED_R5G6B5,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8,
+    PIXELFORMAT_UNCOMPRESSED_R5G5B5A1,
+    PIXELFORMAT_UNCOMPRESSED_R4G4B4A4,
+    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+    PIXELFORMAT_UNCOMPRESSED_R32,
+    PIXELFORMAT_UNCOMPRESSED_R32G32B32,
+    PIXELFORMAT_UNCOMPRESSED_R32G32B32A32,
+    PIXELFORMAT_UNCOMPRESSED_R16,
+    PIXELFORMAT_UNCOMPRESSED_R16G16B16,
+    PIXELFORMAT_UNCOMPRESSED_R16G16B16A16,
+    PIXELFORMAT_COMPRESSED_DXT1_RGB,
+    PIXELFORMAT_COMPRESSED_DXT1_RGBA,
+    PIXELFORMAT_COMPRESSED_DXT3_RGBA,
+    PIXELFORMAT_COMPRESSED_DXT5_RGBA,
+    PIXELFORMAT_COMPRESSED_ETC1_RGB,
+    PIXELFORMAT_COMPRESSED_ETC2_RGB,
+    PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA,
+    PIXELFORMAT_COMPRESSED_PVRT_RGB,
+    PIXELFORMAT_COMPRESSED_PVRT_RGBA,
+    PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA,
+    PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA
+  );
+  
+  TextureFilter = (
+    TEXTURE_FILTER_POINT = 0,
+    TEXTURE_FILTER_BILINEAR,
+    TEXTURE_FILTER_TRILINEAR,
+    TEXTURE_FILTER_ANISOTROPIC_4X,
+    TEXTURE_FILTER_ANISOTROPIC_8X,
+    TEXTURE_FILTER_ANISOTROPIC_16X
+  );
+  
+  TextureWrap = (
+    TEXTURE_WRAP_REPEAT = 0,
+    TEXTURE_WRAP_CLAMP,
+    TEXTURE_WRAP_MIRROR_REPEAT,
+    TEXTURE_WRAP_MIRROR_CLAMP
+  );
+  
+  CubemapLayout = (
+    CUBEMAP_LAYOUT_AUTO_DETECT = 0,
+    CUBEMAP_LAYOUT_LINE_VERTICAL,
+    CUBEMAP_LAYOUT_LINE_HORIZONTAL,
+    CUBEMAP_LAYOUT_CROSS_THREE_BY_FOUR,
+    CUBEMAP_LAYOUT_CROSS_FOUR_BY_THREE
+  );
+  
+  FontType = (
+    FONT_DEFAULT = 0,
+    FONT_BITMAP,
+    FONT_SDF
+  );
+  
+  BlendMode = (
+    BLEND_ALPHA = 0,
+    BLEND_ADDITIVE,
+    BLEND_MULTIPLIED,
+    BLEND_ADD_COLORS,
+    BLEND_SUBTRACT_COLORS,
+    BLEND_ALPHA_PREMULTIPLY,
+    BLEND_CUSTOM,
+    BLEND_CUSTOM_SEPARATE
+  );
+  
+  Gesture = (
+    GESTURE_NONE = 0,
+    GESTURE_TAP = 1,
+    GESTURE_DOUBLETAP = 2,
+    GESTURE_HOLD = 4,
+    GESTURE_DRAG = 8,
+    GESTURE_SWIPE_RIGHT = 16,
+    GESTURE_SWIPE_LEFT = 32,
+    GESTURE_SWIPE_UP = 64,
+    GESTURE_SWIPE_DOWN = 128,
+    GESTURE_PINCH_IN = 256,
+    GESTURE_PINCH_OUT = 512
+  );
+  
+  CameraMode = (
+    CAMERA_CUSTOM = 0,
+    CAMERA_FREE,
+    CAMERA_ORBITAL,
+    CAMERA_FIRST_PERSON,
+    CAMERA_THIRD_PERSON
+  );
+  
+  CameraProjection = (
+    CAMERA_PERSPECTIVE = 0,
+    CAMERA_ORTHOGRAPHIC
+  );
+  
+  NPatchLayout = (
+    NPATCH_NINE_PATCH = 0,
+    NPATCH_THREE_PATCH_VERTICAL,
+    NPATCH_THREE_PATCH_HORIZONTAL
+  );
+  
+
+(* Color constants *)
+public const
+  LIGHTGRAY: Color = Color(200, 200, 200, 255);
+  GRAY: Color = Color(130, 130, 130, 255);
+  DARKGRAY: Color = Color(80, 80, 80, 255);
+  YELLOW: Color = Color(253, 249, 0, 255);
+  GOLD: Color = Color(255, 203, 0, 255);
+  ORANGE: Color = Color(255, 161, 0, 255);
+  PINK: Color = Color(255, 109, 194, 255);
+  RED: Color = Color(230, 41, 55, 255);
+  MAROON: Color = Color(190, 33, 55, 255);
+  GREEN: Color = Color(0, 228, 48, 255);
+  LIME: Color = Color(0, 158, 47, 255);
+  DARKGREEN: Color = Color(0, 117, 44, 255);
+  SKYBLUE: Color = Color(102, 191, 255, 255);
+  BLUE: Color = Color(0, 121, 241, 255);
+  DARKBLUE: Color = Color(0, 82, 172, 255);
+  PURPLE: Color = Color(200, 122, 255, 255);
+  VIOLET: Color = Color(135, 60, 190, 255);
+  DARKPURPLE: Color = Color(112, 31, 126, 255);
+  BEIGE: Color = Color(211, 176, 131, 255);
+  BROWN: Color = Color(127, 106, 79, 255);
+  DARKBROWN: Color = Color(76, 63, 47, 255);
+  WHITE: Color = Color(255, 255, 255, 255);
+  BLACK: Color = Color(0, 0, 0, 255);
+  BLANK: Color = Color(0, 0, 0, 0);
+  MAGENTA: Color = Color(255, 0, 255, 255);
+  RAYWHITE: Color = Color(245, 245, 245, 255);
+
+(* External routines *)
+public routine InitWindow(const Awidth: Int32; const Aheight: Int32; const Atitle: pointer to Char); external 'raylib.dll';
+public routine CloseWindow(); external 'raylib.dll';
+public routine WindowShouldClose(): Boolean; external 'raylib.dll';
+public routine IsWindowReady(): Boolean; external 'raylib.dll';
+public routine IsWindowFullscreen(): Boolean; external 'raylib.dll';
+public routine IsWindowHidden(): Boolean; external 'raylib.dll';
+public routine IsWindowMinimized(): Boolean; external 'raylib.dll';
+public routine IsWindowMaximized(): Boolean; external 'raylib.dll';
+public routine IsWindowFocused(): Boolean; external 'raylib.dll';
+public routine IsWindowResized(): Boolean; external 'raylib.dll';
+public routine IsWindowState(const Aflag: UInt32): Boolean; external 'raylib.dll';
+public routine SetWindowState(const Aflags: UInt32); external 'raylib.dll';
+public routine ClearWindowState(const Aflags: UInt32); external 'raylib.dll';
+public routine ToggleFullscreen(); external 'raylib.dll';
+public routine ToggleBorderlessWindowed(); external 'raylib.dll';
+public routine MaximizeWindow(); external 'raylib.dll';
+public routine MinimizeWindow(); external 'raylib.dll';
+public routine RestoreWindow(); external 'raylib.dll';
+public routine SetWindowIcon(const Aimage: Image); external 'raylib.dll';
+public routine SetWindowIcons(const Aimages: pointer to Image; const Acount: Int32); external 'raylib.dll';
+public routine SetWindowTitle(const Atitle: pointer to Char); external 'raylib.dll';
+public routine SetWindowPosition(const Ax: Int32; const Ay: Int32); external 'raylib.dll';
+public routine SetWindowMonitor(const Amonitor: Int32); external 'raylib.dll';
+public routine SetWindowMinSize(const Awidth: Int32; const Aheight: Int32); external 'raylib.dll';
+public routine SetWindowMaxSize(const Awidth: Int32; const Aheight: Int32); external 'raylib.dll';
+public routine SetWindowSize(const Awidth: Int32; const Aheight: Int32); external 'raylib.dll';
+public routine SetWindowOpacity(const Aopacity: Float32); external 'raylib.dll';
+public routine SetWindowFocused(); external 'raylib.dll';
+public routine GetWindowHandle(): pointer to Pointer; external 'raylib.dll';
+public routine GetScreenWidth(): Int32; external 'raylib.dll';
+public routine GetScreenHeight(): Int32; external 'raylib.dll';
+public routine GetRenderWidth(): Int32; external 'raylib.dll';
+public routine GetRenderHeight(): Int32; external 'raylib.dll';
+public routine GetMonitorCount(): Int32; external 'raylib.dll';
+public routine GetCurrentMonitor(): Int32; external 'raylib.dll';
+public routine GetMonitorPosition(const Amonitor: Int32): Vector2; external 'raylib.dll';
+public routine GetMonitorWidth(const Amonitor: Int32): Int32; external 'raylib.dll';
+public routine GetMonitorHeight(const Amonitor: Int32): Int32; external 'raylib.dll';
+public routine GetMonitorPhysicalWidth(const Amonitor: Int32): Int32; external 'raylib.dll';
+public routine GetMonitorPhysicalHeight(const Amonitor: Int32): Int32; external 'raylib.dll';
+public routine GetMonitorRefreshRate(const Amonitor: Int32): Int32; external 'raylib.dll';
+public routine GetWindowPosition(): Vector2; external 'raylib.dll';
+public routine GetWindowScaleDPI(): Vector2; external 'raylib.dll';
+public routine GetMonitorName(const Amonitor: Int32): pointer to Char; external 'raylib.dll';
+public routine SetClipboardText(const Atext: pointer to Char); external 'raylib.dll';
+public routine GetClipboardText(): pointer to Char; external 'raylib.dll';
+public routine GetClipboardImage(): Image; external 'raylib.dll';
+public routine EnableEventWaiting(); external 'raylib.dll';
+public routine DisableEventWaiting(); external 'raylib.dll';
+public routine ShowCursor(); external 'raylib.dll';
+public routine HideCursor(); external 'raylib.dll';
+public routine IsCursorHidden(): Boolean; external 'raylib.dll';
+public routine EnableCursor(); external 'raylib.dll';
+public routine DisableCursor(); external 'raylib.dll';
+public routine IsCursorOnScreen(): Boolean; external 'raylib.dll';
+public routine ClearBackground(const Acolor: Color); external 'raylib.dll';
+public routine BeginDrawing(); external 'raylib.dll';
+public routine EndDrawing(); external 'raylib.dll';
+public routine BeginMode2D(const Acamera: Camera2D); external 'raylib.dll';
+public routine EndMode2D(); external 'raylib.dll';
+public routine BeginMode3D(const Acamera: Camera3D); external 'raylib.dll';
+public routine EndMode3D(); external 'raylib.dll';
+public routine BeginTextureMode(const Atarget: RenderTexture2D); external 'raylib.dll';
+public routine EndTextureMode(); external 'raylib.dll';
+public routine BeginShaderMode(const Ashader: Shader); external 'raylib.dll';
+public routine EndShaderMode(); external 'raylib.dll';
+public routine BeginBlendMode(const Amode: Int32); external 'raylib.dll';
+public routine EndBlendMode(); external 'raylib.dll';
+public routine BeginScissorMode(const Ax: Int32; const Ay: Int32; const Awidth: Int32; const Aheight: Int32); external 'raylib.dll';
+public routine EndScissorMode(); external 'raylib.dll';
+public routine BeginVrStereoMode(const Aconfig: VrStereoConfig); external 'raylib.dll';
+public routine EndVrStereoMode(); external 'raylib.dll';
+public routine LoadVrStereoConfig(const Adevice: VrDeviceInfo): VrStereoConfig; external 'raylib.dll';
+public routine UnloadVrStereoConfig(const Aconfig: VrStereoConfig); external 'raylib.dll';
+public routine LoadShader(const AvsFileName: pointer to Char; const AfsFileName: pointer to Char): Shader; external 'raylib.dll';
+public routine LoadShaderFromMemory(const AvsCode: pointer to Char; const AfsCode: pointer to Char): Shader; external 'raylib.dll';
+public routine IsShaderValid(const Ashader: Shader): Boolean; external 'raylib.dll';
+public routine GetShaderLocation(const Ashader: Shader; const AuniformName: pointer to Char): Int32; external 'raylib.dll';
+public routine GetShaderLocationAttrib(const Ashader: Shader; const AattribName: pointer to Char): Int32; external 'raylib.dll';
+public routine SetShaderValue(const Ashader: Shader; const AlocIndex: Int32; const Avalue: pointer to Pointer; const AuniformType: Int32); external 'raylib.dll';
+public routine SetShaderValueV(const Ashader: Shader; const AlocIndex: Int32; const Avalue: pointer to Pointer; const AuniformType: Int32; const Acount: Int32); external 'raylib.dll';
+public routine SetShaderValueMatrix(const Ashader: Shader; const AlocIndex: Int32; const Amat: Matrix); external 'raylib.dll';
+public routine SetShaderValueTexture(const Ashader: Shader; const AlocIndex: Int32; const Atexture: Texture2D); external 'raylib.dll';
+public routine UnloadShader(const Ashader: Shader); external 'raylib.dll';
+public routine GetScreenToWorldRay(const Aposition: Vector2; const Acamera: Camera): Ray; external 'raylib.dll';
+public routine GetScreenToWorldRayEx(const Aposition: Vector2; const Acamera: Camera; const Awidth: Int32; const Aheight: Int32): Ray; external 'raylib.dll';
+public routine GetWorldToScreen(const Aposition: Vector3; const Acamera: Camera): Vector2; external 'raylib.dll';
+public routine GetWorldToScreenEx(const Aposition: Vector3; const Acamera: Camera; const Awidth: Int32; const Aheight: Int32): Vector2; external 'raylib.dll';
+public routine GetWorldToScreen2D(const Aposition: Vector2; const Acamera: Camera2D): Vector2; external 'raylib.dll';
+public routine GetScreenToWorld2D(const Aposition: Vector2; const Acamera: Camera2D): Vector2; external 'raylib.dll';
+public routine GetCameraMatrix(const Acamera: Camera): Matrix; external 'raylib.dll';
+public routine GetCameraMatrix2D(const Acamera: Camera2D): Matrix; external 'raylib.dll';
+public routine SetTargetFPS(const Afps: Int32); external 'raylib.dll';
+public routine GetFrameTime(): Float32; external 'raylib.dll';
+public routine GetTime(): Float64; external 'raylib.dll';
+public routine GetFPS(): Int32; external 'raylib.dll';
+public routine SwapScreenBuffer(); external 'raylib.dll';
+public routine PollInputEvents(); external 'raylib.dll';
+public routine WaitTime(const Aseconds: Float64); external 'raylib.dll';
+public routine SetRandomSeed(const Aseed: UInt32); external 'raylib.dll';
+public routine GetRandomValue(const Amin: Int32; const Amax: Int32): Int32; external 'raylib.dll';
+public routine LoadRandomSequence(const Acount: UInt32; const Amin: Int32; const Amax: Int32): pointer to Int32; external 'raylib.dll';
+public routine UnloadRandomSequence(const Asequence: pointer to Int32); external 'raylib.dll';
+public routine TakeScreenshot(const AfileName: pointer to Char); external 'raylib.dll';
+public routine SetConfigFlags(const Aflags: UInt32); external 'raylib.dll';
+public routine OpenURL(const Aurl: pointer to Char); external 'raylib.dll';
+public routine TraceLog(const AlogLevel: Int32; const Atext: pointer to Char; ...); external 'raylib.dll';
+public routine SetTraceLogLevel(const AlogLevel: Int32); external 'raylib.dll';
+public routine MemAlloc(const Asize: UInt32): pointer to Pointer; external 'raylib.dll';
+public routine MemRealloc(const Aptr: pointer to Pointer; const Asize: UInt32): pointer to Pointer; external 'raylib.dll';
+public routine MemFree(const Aptr: pointer to Pointer); external 'raylib.dll';
+public routine SetTraceLogCallback(const Acallback: TraceLogCallback); external 'raylib.dll';
+public routine SetLoadFileDataCallback(const Acallback: LoadFileDataCallback); external 'raylib.dll';
+public routine SetSaveFileDataCallback(const Acallback: SaveFileDataCallback); external 'raylib.dll';
+public routine SetLoadFileTextCallback(const Acallback: LoadFileTextCallback); external 'raylib.dll';
+public routine SetSaveFileTextCallback(const Acallback: SaveFileTextCallback); external 'raylib.dll';
+public routine LoadFileData(const AfileName: pointer to Char; const AdataSize: pointer to Int32): pointer to UInt8; external 'raylib.dll';
+public routine UnloadFileData(const Adata: pointer to UInt8); external 'raylib.dll';
+public routine SaveFileData(const AfileName: pointer to Char; const Adata: pointer to Pointer; const AdataSize: Int32): Boolean; external 'raylib.dll';
+public routine ExportDataAsCode(const Adata: pointer to UInt8; const AdataSize: Int32; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine LoadFileText(const AfileName: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine UnloadFileText(const Atext: pointer to Char); external 'raylib.dll';
+public routine SaveFileText(const AfileName: pointer to Char; const Atext: pointer to Char): Boolean; external 'raylib.dll';
+public routine FileExists(const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine DirectoryExists(const AdirPath: pointer to Char): Boolean; external 'raylib.dll';
+public routine IsFileExtension(const AfileName: pointer to Char; const Aext: pointer to Char): Boolean; external 'raylib.dll';
+public routine GetFileLength(const AfileName: pointer to Char): Int32; external 'raylib.dll';
+public routine GetFileExtension(const AfileName: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine GetFileName(const AfilePath: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine GetFileNameWithoutExt(const AfilePath: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine GetDirectoryPath(const AfilePath: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine GetPrevDirectoryPath(const AdirPath: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine GetWorkingDirectory(): pointer to Char; external 'raylib.dll';
+public routine GetApplicationDirectory(): pointer to Char; external 'raylib.dll';
+public routine MakeDirectory(const AdirPath: pointer to Char): Int32; external 'raylib.dll';
+public routine ChangeDirectory(const Adir: pointer to Char): Boolean; external 'raylib.dll';
+public routine IsPathFile(const Apath: pointer to Char): Boolean; external 'raylib.dll';
+public routine IsFileNameValid(const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine LoadDirectoryFiles(const AdirPath: pointer to Char): FilePathList; external 'raylib.dll';
+public routine LoadDirectoryFilesEx(const AbasePath: pointer to Char; const Afilter: pointer to Char; const AscanSubdirs: Boolean): FilePathList; external 'raylib.dll';
+public routine UnloadDirectoryFiles(const Afiles: FilePathList); external 'raylib.dll';
+public routine IsFileDropped(): Boolean; external 'raylib.dll';
+public routine LoadDroppedFiles(): FilePathList; external 'raylib.dll';
+public routine UnloadDroppedFiles(const Afiles: FilePathList); external 'raylib.dll';
+public routine CompressData(const Adata: pointer to UInt8; const AdataSize: Int32; const AcompDataSize: pointer to Int32): pointer to UInt8; external 'raylib.dll';
+public routine DecompressData(const AcompData: pointer to UInt8; const AcompDataSize: Int32; const AdataSize: pointer to Int32): pointer to UInt8; external 'raylib.dll';
+public routine EncodeDataBase64(const Adata: pointer to UInt8; const AdataSize: Int32; const AoutputSize: pointer to Int32): pointer to Char; external 'raylib.dll';
+public routine DecodeDataBase64(const Adata: pointer to UInt8; const AoutputSize: pointer to Int32): pointer to UInt8; external 'raylib.dll';
+public routine ComputeCRC32(const Adata: pointer to UInt8; const AdataSize: Int32): UInt32; external 'raylib.dll';
+public routine ComputeMD5(const Adata: pointer to UInt8; const AdataSize: Int32): pointer to UInt32; external 'raylib.dll';
+public routine ComputeSHA1(const Adata: pointer to UInt8; const AdataSize: Int32): pointer to UInt32; external 'raylib.dll';
+public routine LoadAutomationEventList(const AfileName: pointer to Char): AutomationEventList; external 'raylib.dll';
+public routine UnloadAutomationEventList(const Alist: AutomationEventList); external 'raylib.dll';
+public routine ExportAutomationEventList(const Alist: AutomationEventList; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine SetAutomationEventList(const Alist: pointer to AutomationEventList); external 'raylib.dll';
+public routine SetAutomationEventBaseFrame(const Aframe: Int32); external 'raylib.dll';
+public routine StartAutomationEventRecording(); external 'raylib.dll';
+public routine StopAutomationEventRecording(); external 'raylib.dll';
+public routine PlayAutomationEvent(const Aevent: AutomationEvent); external 'raylib.dll';
+public routine IsKeyPressed(const Akey: Int32): Boolean; external 'raylib.dll';
+public routine IsKeyPressedRepeat(const Akey: Int32): Boolean; external 'raylib.dll';
+public routine IsKeyDown(const Akey: Int32): Boolean; external 'raylib.dll';
+public routine IsKeyReleased(const Akey: Int32): Boolean; external 'raylib.dll';
+public routine IsKeyUp(const Akey: Int32): Boolean; external 'raylib.dll';
+public routine GetKeyPressed(): Int32; external 'raylib.dll';
+public routine GetCharPressed(): Int32; external 'raylib.dll';
+public routine SetExitKey(const Akey: Int32); external 'raylib.dll';
+public routine IsGamepadAvailable(const Agamepad: Int32): Boolean; external 'raylib.dll';
+public routine GetGamepadName(const Agamepad: Int32): pointer to Char; external 'raylib.dll';
+public routine IsGamepadButtonPressed(const Agamepad: Int32; const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine IsGamepadButtonDown(const Agamepad: Int32; const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine IsGamepadButtonReleased(const Agamepad: Int32; const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine IsGamepadButtonUp(const Agamepad: Int32; const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine GetGamepadButtonPressed(): Int32; external 'raylib.dll';
+public routine GetGamepadAxisCount(const Agamepad: Int32): Int32; external 'raylib.dll';
+public routine GetGamepadAxisMovement(const Agamepad: Int32; const Aaxis: Int32): Float32; external 'raylib.dll';
+public routine SetGamepadMappings(const Amappings: pointer to Char): Int32; external 'raylib.dll';
+public routine SetGamepadVibration(const Agamepad: Int32; const AleftMotor: Float32; const ArightMotor: Float32; const Aduration: Float32); external 'raylib.dll';
+public routine IsMouseButtonPressed(const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine IsMouseButtonDown(const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine IsMouseButtonReleased(const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine IsMouseButtonUp(const Abutton: Int32): Boolean; external 'raylib.dll';
+public routine GetMouseX(): Int32; external 'raylib.dll';
+public routine GetMouseY(): Int32; external 'raylib.dll';
+public routine GetMousePosition(): Vector2; external 'raylib.dll';
+public routine GetMouseDelta(): Vector2; external 'raylib.dll';
+public routine SetMousePosition(const Ax: Int32; const Ay: Int32); external 'raylib.dll';
+public routine SetMouseOffset(const AoffsetX: Int32; const AoffsetY: Int32); external 'raylib.dll';
+public routine SetMouseScale(const AscaleX: Float32; const AscaleY: Float32); external 'raylib.dll';
+public routine GetMouseWheelMove(): Float32; external 'raylib.dll';
+public routine GetMouseWheelMoveV(): Vector2; external 'raylib.dll';
+public routine SetMouseCursor(const Acursor: Int32); external 'raylib.dll';
+public routine GetTouchX(): Int32; external 'raylib.dll';
+public routine GetTouchY(): Int32; external 'raylib.dll';
+public routine GetTouchPosition(const Aindex: Int32): Vector2; external 'raylib.dll';
+public routine GetTouchPointId(const Aindex: Int32): Int32; external 'raylib.dll';
+public routine GetTouchPointCount(): Int32; external 'raylib.dll';
+public routine SetGesturesEnabled(const Aflags: UInt32); external 'raylib.dll';
+public routine IsGestureDetected(const Agesture: UInt32): Boolean; external 'raylib.dll';
+public routine GetGestureDetected(): Int32; external 'raylib.dll';
+public routine GetGestureHoldDuration(): Float32; external 'raylib.dll';
+public routine GetGestureDragVector(): Vector2; external 'raylib.dll';
+public routine GetGestureDragAngle(): Float32; external 'raylib.dll';
+public routine GetGesturePinchVector(): Vector2; external 'raylib.dll';
+public routine GetGesturePinchAngle(): Float32; external 'raylib.dll';
+public routine UpdateCamera(const Acamera: pointer to Camera; const Amode: Int32); external 'raylib.dll';
+public routine UpdateCameraPro(const Acamera: pointer to Camera; const Amovement: Vector3; const Arotation: Vector3; const Azoom: Float32); external 'raylib.dll';
+public routine SetShapesTexture(const Atexture: Texture2D; const Asource: Rectangle); external 'raylib.dll';
+public routine GetShapesTexture(): Texture2D; external 'raylib.dll';
+public routine GetShapesTextureRectangle(): Rectangle; external 'raylib.dll';
+public routine DrawPixel(const AposX: Int32; const AposY: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawPixelV(const Aposition: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine DrawLine(const AstartPosX: Int32; const AstartPosY: Int32; const AendPosX: Int32; const AendPosY: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawLineV(const AstartPos: Vector2; const AendPos: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine DrawLineEx(const AstartPos: Vector2; const AendPos: Vector2; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawLineStrip(const Apoints: pointer to Vector2; const ApointCount: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawLineBezier(const AstartPos: Vector2; const AendPos: Vector2; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCircle(const AcenterX: Int32; const AcenterY: Int32; const Aradius: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCircleSector(const Acenter: Vector2; const Aradius: Float32; const AstartAngle: Float32; const AendAngle: Float32; const Asegments: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCircleSectorLines(const Acenter: Vector2; const Aradius: Float32; const AstartAngle: Float32; const AendAngle: Float32; const Asegments: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCircleGradient(const AcenterX: Int32; const AcenterY: Int32; const Aradius: Float32; const Ainner: Color; const Aouter: Color); external 'raylib.dll';
+public routine DrawCircleV(const Acenter: Vector2; const Aradius: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCircleLines(const AcenterX: Int32; const AcenterY: Int32; const Aradius: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCircleLinesV(const Acenter: Vector2; const Aradius: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawEllipse(const AcenterX: Int32; const AcenterY: Int32; const AradiusH: Float32; const AradiusV: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawEllipseLines(const AcenterX: Int32; const AcenterY: Int32; const AradiusH: Float32; const AradiusV: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRing(const Acenter: Vector2; const AinnerRadius: Float32; const AouterRadius: Float32; const AstartAngle: Float32; const AendAngle: Float32; const Asegments: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRingLines(const Acenter: Vector2; const AinnerRadius: Float32; const AouterRadius: Float32; const AstartAngle: Float32; const AendAngle: Float32; const Asegments: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangle(const AposX: Int32; const AposY: Int32; const Awidth: Int32; const Aheight: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangleV(const Aposition: Vector2; const Asize: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangleRec(const Arec: Rectangle; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectanglePro(const Arec: Rectangle; const Aorigin: Vector2; const Arotation: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangleGradientV(const AposX: Int32; const AposY: Int32; const Awidth: Int32; const Aheight: Int32; const Atop: Color; const Abottom: Color); external 'raylib.dll';
+public routine DrawRectangleGradientH(const AposX: Int32; const AposY: Int32; const Awidth: Int32; const Aheight: Int32; const Aleft: Color; const Aright: Color); external 'raylib.dll';
+public routine DrawRectangleGradientEx(const Arec: Rectangle; const AtopLeft: Color; const AbottomLeft: Color; const AtopRight: Color; const AbottomRight: Color); external 'raylib.dll';
+public routine DrawRectangleLines(const AposX: Int32; const AposY: Int32; const Awidth: Int32; const Aheight: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangleLinesEx(const Arec: Rectangle; const AlineThick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangleRounded(const Arec: Rectangle; const Aroundness: Float32; const Asegments: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangleRoundedLines(const Arec: Rectangle; const Aroundness: Float32; const Asegments: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawRectangleRoundedLinesEx(const Arec: Rectangle; const Aroundness: Float32; const Asegments: Int32; const AlineThick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawTriangle(const Av1: Vector2; const Av2: Vector2; const Av3: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine DrawTriangleLines(const Av1: Vector2; const Av2: Vector2; const Av3: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine DrawTriangleFan(const Apoints: pointer to Vector2; const ApointCount: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawTriangleStrip(const Apoints: pointer to Vector2; const ApointCount: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawPoly(const Acenter: Vector2; const Asides: Int32; const Aradius: Float32; const Arotation: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawPolyLines(const Acenter: Vector2; const Asides: Int32; const Aradius: Float32; const Arotation: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawPolyLinesEx(const Acenter: Vector2; const Asides: Int32; const Aradius: Float32; const Arotation: Float32; const AlineThick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineLinear(const Apoints: pointer to Vector2; const ApointCount: Int32; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineBasis(const Apoints: pointer to Vector2; const ApointCount: Int32; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineCatmullRom(const Apoints: pointer to Vector2; const ApointCount: Int32; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineBezierQuadratic(const Apoints: pointer to Vector2; const ApointCount: Int32; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineBezierCubic(const Apoints: pointer to Vector2; const ApointCount: Int32; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineSegmentLinear(const Ap1: Vector2; const Ap2: Vector2; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineSegmentBasis(const Ap1: Vector2; const Ap2: Vector2; const Ap3: Vector2; const Ap4: Vector2; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineSegmentCatmullRom(const Ap1: Vector2; const Ap2: Vector2; const Ap3: Vector2; const Ap4: Vector2; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineSegmentBezierQuadratic(const Ap1: Vector2; const Ac2: Vector2; const Ap3: Vector2; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSplineSegmentBezierCubic(const Ap1: Vector2; const Ac2: Vector2; const Ac3: Vector2; const Ap4: Vector2; const Athick: Float32; const Acolor: Color); external 'raylib.dll';
+public routine GetSplinePointLinear(const AstartPos: Vector2; const AendPos: Vector2; const At: Float32): Vector2; external 'raylib.dll';
+public routine GetSplinePointBasis(const Ap1: Vector2; const Ap2: Vector2; const Ap3: Vector2; const Ap4: Vector2; const At: Float32): Vector2; external 'raylib.dll';
+public routine GetSplinePointCatmullRom(const Ap1: Vector2; const Ap2: Vector2; const Ap3: Vector2; const Ap4: Vector2; const At: Float32): Vector2; external 'raylib.dll';
+public routine GetSplinePointBezierQuad(const Ap1: Vector2; const Ac2: Vector2; const Ap3: Vector2; const At: Float32): Vector2; external 'raylib.dll';
+public routine GetSplinePointBezierCubic(const Ap1: Vector2; const Ac2: Vector2; const Ac3: Vector2; const Ap4: Vector2; const At: Float32): Vector2; external 'raylib.dll';
+public routine CheckCollisionRecs(const Arec1: Rectangle; const Arec2: Rectangle): Boolean; external 'raylib.dll';
+public routine CheckCollisionCircles(const Acenter1: Vector2; const Aradius1: Float32; const Acenter2: Vector2; const Aradius2: Float32): Boolean; external 'raylib.dll';
+public routine CheckCollisionCircleRec(const Acenter: Vector2; const Aradius: Float32; const Arec: Rectangle): Boolean; external 'raylib.dll';
+public routine CheckCollisionCircleLine(const Acenter: Vector2; const Aradius: Float32; const Ap1: Vector2; const Ap2: Vector2): Boolean; external 'raylib.dll';
+public routine CheckCollisionPointRec(const Apoint: Vector2; const Arec: Rectangle): Boolean; external 'raylib.dll';
+public routine CheckCollisionPointCircle(const Apoint: Vector2; const Acenter: Vector2; const Aradius: Float32): Boolean; external 'raylib.dll';
+public routine CheckCollisionPointTriangle(const Apoint: Vector2; const Ap1: Vector2; const Ap2: Vector2; const Ap3: Vector2): Boolean; external 'raylib.dll';
+public routine CheckCollisionPointLine(const Apoint: Vector2; const Ap1: Vector2; const Ap2: Vector2; const Athreshold: Int32): Boolean; external 'raylib.dll';
+public routine CheckCollisionPointPoly(const Apoint: Vector2; const Apoints: pointer to Vector2; const ApointCount: Int32): Boolean; external 'raylib.dll';
+public routine CheckCollisionLines(const AstartPos1: Vector2; const AendPos1: Vector2; const AstartPos2: Vector2; const AendPos2: Vector2; const AcollisionPoint: pointer to Vector2): Boolean; external 'raylib.dll';
+public routine GetCollisionRec(const Arec1: Rectangle; const Arec2: Rectangle): Rectangle; external 'raylib.dll';
+public routine LoadImage(const AfileName: pointer to Char): Image; external 'raylib.dll';
+public routine LoadImageRaw(const AfileName: pointer to Char; const Awidth: Int32; const Aheight: Int32; const Aformat: Int32; const AheaderSize: Int32): Image; external 'raylib.dll';
+public routine LoadImageAnim(const AfileName: pointer to Char; const Aframes: pointer to Int32): Image; external 'raylib.dll';
+public routine LoadImageAnimFromMemory(const AfileType: pointer to Char; const AfileData: pointer to UInt8; const AdataSize: Int32; const Aframes: pointer to Int32): Image; external 'raylib.dll';
+public routine LoadImageFromMemory(const AfileType: pointer to Char; const AfileData: pointer to UInt8; const AdataSize: Int32): Image; external 'raylib.dll';
+public routine LoadImageFromTexture(const Atexture: Texture2D): Image; external 'raylib.dll';
+public routine LoadImageFromScreen(): Image; external 'raylib.dll';
+public routine IsImageValid(const Aimage: Image): Boolean; external 'raylib.dll';
+public routine UnloadImage(const Aimage: Image); external 'raylib.dll';
+public routine ExportImage(const Aimage: Image; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine ExportImageToMemory(const Aimage: Image; const AfileType: pointer to Char; const AfileSize: pointer to Int32): pointer to UInt8; external 'raylib.dll';
+public routine ExportImageAsCode(const Aimage: Image; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine GenImageColor(const Awidth: Int32; const Aheight: Int32; const Acolor: Color): Image; external 'raylib.dll';
+public routine GenImageGradientLinear(const Awidth: Int32; const Aheight: Int32; const Adirection: Int32; const Astart: Color; const Aend: Color): Image; external 'raylib.dll';
+public routine GenImageGradientRadial(const Awidth: Int32; const Aheight: Int32; const Adensity: Float32; const Ainner: Color; const Aouter: Color): Image; external 'raylib.dll';
+public routine GenImageGradientSquare(const Awidth: Int32; const Aheight: Int32; const Adensity: Float32; const Ainner: Color; const Aouter: Color): Image; external 'raylib.dll';
+public routine GenImageChecked(const Awidth: Int32; const Aheight: Int32; const AchecksX: Int32; const AchecksY: Int32; const Acol1: Color; const Acol2: Color): Image; external 'raylib.dll';
+public routine GenImageWhiteNoise(const Awidth: Int32; const Aheight: Int32; const Afactor: Float32): Image; external 'raylib.dll';
+public routine GenImagePerlinNoise(const Awidth: Int32; const Aheight: Int32; const AoffsetX: Int32; const AoffsetY: Int32; const Ascale: Float32): Image; external 'raylib.dll';
+public routine GenImageCellular(const Awidth: Int32; const Aheight: Int32; const AtileSize: Int32): Image; external 'raylib.dll';
+public routine GenImageText(const Awidth: Int32; const Aheight: Int32; const Atext: pointer to Char): Image; external 'raylib.dll';
+public routine ImageCopy(const Aimage: Image): Image; external 'raylib.dll';
+public routine ImageFromImage(const Aimage: Image; const Arec: Rectangle): Image; external 'raylib.dll';
+public routine ImageFromChannel(const Aimage: Image; const AselectedChannel: Int32): Image; external 'raylib.dll';
+public routine ImageText(const Atext: pointer to Char; const AfontSize: Int32; const Acolor: Color): Image; external 'raylib.dll';
+public routine ImageTextEx(const Afont: Font; const Atext: pointer to Char; const AfontSize: Float32; const Aspacing: Float32; const Atint: Color): Image; external 'raylib.dll';
+public routine ImageFormat(const Aimage: pointer to Image; const AnewFormat: Int32); external 'raylib.dll';
+public routine ImageToPOT(const Aimage: pointer to Image; const Afill: Color); external 'raylib.dll';
+public routine ImageCrop(const Aimage: pointer to Image; const Acrop: Rectangle); external 'raylib.dll';
+public routine ImageAlphaCrop(const Aimage: pointer to Image; const Athreshold: Float32); external 'raylib.dll';
+public routine ImageAlphaClear(const Aimage: pointer to Image; const Acolor: Color; const Athreshold: Float32); external 'raylib.dll';
+public routine ImageAlphaMask(const Aimage: pointer to Image; const AalphaMask: Image); external 'raylib.dll';
+public routine ImageAlphaPremultiply(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageBlurGaussian(const Aimage: pointer to Image; const AblurSize: Int32); external 'raylib.dll';
+public routine ImageKernelConvolution(const Aimage: pointer to Image; const Akernel: pointer to Float32; const AkernelSize: Int32); external 'raylib.dll';
+public routine ImageResize(const Aimage: pointer to Image; const AnewWidth: Int32; const AnewHeight: Int32); external 'raylib.dll';
+public routine ImageResizeNN(const Aimage: pointer to Image; const AnewWidth: Int32; const AnewHeight: Int32); external 'raylib.dll';
+public routine ImageResizeCanvas(const Aimage: pointer to Image; const AnewWidth: Int32; const AnewHeight: Int32; const AoffsetX: Int32; const AoffsetY: Int32; const Afill: Color); external 'raylib.dll';
+public routine ImageMipmaps(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageDither(const Aimage: pointer to Image; const ArBpp: Int32; const AgBpp: Int32; const AbBpp: Int32; const AaBpp: Int32); external 'raylib.dll';
+public routine ImageFlipVertical(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageFlipHorizontal(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageRotate(const Aimage: pointer to Image; const Adegrees: Int32); external 'raylib.dll';
+public routine ImageRotateCW(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageRotateCCW(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageColorTint(const Aimage: pointer to Image; const Acolor: Color); external 'raylib.dll';
+public routine ImageColorInvert(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageColorGrayscale(const Aimage: pointer to Image); external 'raylib.dll';
+public routine ImageColorContrast(const Aimage: pointer to Image; const Acontrast: Float32); external 'raylib.dll';
+public routine ImageColorBrightness(const Aimage: pointer to Image; const Abrightness: Int32); external 'raylib.dll';
+public routine ImageColorReplace(const Aimage: pointer to Image; const Acolor: Color; const Areplace: Color); external 'raylib.dll';
+public routine LoadImageColors(const Aimage: Image): pointer to Color; external 'raylib.dll';
+public routine LoadImagePalette(const Aimage: Image; const AmaxPaletteSize: Int32; const AcolorCount: pointer to Int32): pointer to Color; external 'raylib.dll';
+public routine UnloadImageColors(const Acolors: pointer to Color); external 'raylib.dll';
+public routine UnloadImagePalette(const Acolors: pointer to Color); external 'raylib.dll';
+public routine GetImageAlphaBorder(const Aimage: Image; const Athreshold: Float32): Rectangle; external 'raylib.dll';
+public routine GetImageColor(const Aimage: Image; const Ax: Int32; const Ay: Int32): Color; external 'raylib.dll';
+public routine ImageClearBackground(const Adst: pointer to Image; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawPixel(const Adst: pointer to Image; const AposX: Int32; const AposY: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawPixelV(const Adst: pointer to Image; const Aposition: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawLine(const Adst: pointer to Image; const AstartPosX: Int32; const AstartPosY: Int32; const AendPosX: Int32; const AendPosY: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawLineV(const Adst: pointer to Image; const Astart: Vector2; const Aend: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawLineEx(const Adst: pointer to Image; const Astart: Vector2; const Aend: Vector2; const Athick: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawCircle(const Adst: pointer to Image; const AcenterX: Int32; const AcenterY: Int32; const Aradius: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawCircleV(const Adst: pointer to Image; const Acenter: Vector2; const Aradius: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawCircleLines(const Adst: pointer to Image; const AcenterX: Int32; const AcenterY: Int32; const Aradius: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawCircleLinesV(const Adst: pointer to Image; const Acenter: Vector2; const Aradius: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawRectangle(const Adst: pointer to Image; const AposX: Int32; const AposY: Int32; const Awidth: Int32; const Aheight: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawRectangleV(const Adst: pointer to Image; const Aposition: Vector2; const Asize: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawRectangleRec(const Adst: pointer to Image; const Arec: Rectangle; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawRectangleLines(const Adst: pointer to Image; const Arec: Rectangle; const Athick: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawTriangle(const Adst: pointer to Image; const Av1: Vector2; const Av2: Vector2; const Av3: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawTriangleEx(const Adst: pointer to Image; const Av1: Vector2; const Av2: Vector2; const Av3: Vector2; const Ac1: Color; const Ac2: Color; const Ac3: Color); external 'raylib.dll';
+public routine ImageDrawTriangleLines(const Adst: pointer to Image; const Av1: Vector2; const Av2: Vector2; const Av3: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawTriangleFan(const Adst: pointer to Image; const Apoints: pointer to Vector2; const ApointCount: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawTriangleStrip(const Adst: pointer to Image; const Apoints: pointer to Vector2; const ApointCount: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDraw(const Adst: pointer to Image; const Asrc: Image; const AsrcRec: Rectangle; const AdstRec: Rectangle; const Atint: Color); external 'raylib.dll';
+public routine ImageDrawText(const Adst: pointer to Image; const Atext: pointer to Char; const AposX: Int32; const AposY: Int32; const AfontSize: Int32; const Acolor: Color); external 'raylib.dll';
+public routine ImageDrawTextEx(const Adst: pointer to Image; const Afont: Font; const Atext: pointer to Char; const Aposition: Vector2; const AfontSize: Float32; const Aspacing: Float32; const Atint: Color); external 'raylib.dll';
+public routine LoadTexture(const AfileName: pointer to Char): Texture2D; external 'raylib.dll';
+public routine LoadTextureFromImage(const Aimage: Image): Texture2D; external 'raylib.dll';
+public routine LoadTextureCubemap(const Aimage: Image; const Alayout: Int32): TextureCubemap; external 'raylib.dll';
+public routine LoadRenderTexture(const Awidth: Int32; const Aheight: Int32): RenderTexture2D; external 'raylib.dll';
+public routine IsTextureValid(const Atexture: Texture2D): Boolean; external 'raylib.dll';
+public routine UnloadTexture(const Atexture: Texture2D); external 'raylib.dll';
+public routine IsRenderTextureValid(const Atarget: RenderTexture2D): Boolean; external 'raylib.dll';
+public routine UnloadRenderTexture(const Atarget: RenderTexture2D); external 'raylib.dll';
+public routine UpdateTexture(const Atexture: Texture2D; const Apixels: pointer to Pointer); external 'raylib.dll';
+public routine UpdateTextureRec(const Atexture: Texture2D; const Arec: Rectangle; const Apixels: pointer to Pointer); external 'raylib.dll';
+public routine GenTextureMipmaps(const Atexture: pointer to Texture2D); external 'raylib.dll';
+public routine SetTextureFilter(const Atexture: Texture2D; const Afilter: Int32); external 'raylib.dll';
+public routine SetTextureWrap(const Atexture: Texture2D; const Awrap: Int32); external 'raylib.dll';
+public routine DrawTexture(const Atexture: Texture2D; const AposX: Int32; const AposY: Int32; const Atint: Color); external 'raylib.dll';
+public routine DrawTextureV(const Atexture: Texture2D; const Aposition: Vector2; const Atint: Color); external 'raylib.dll';
+public routine DrawTextureEx(const Atexture: Texture2D; const Aposition: Vector2; const Arotation: Float32; const Ascale: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawTextureRec(const Atexture: Texture2D; const Asource: Rectangle; const Aposition: Vector2; const Atint: Color); external 'raylib.dll';
+public routine DrawTexturePro(const Atexture: Texture2D; const Asource: Rectangle; const Adest: Rectangle; const Aorigin: Vector2; const Arotation: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawTextureNPatch(const Atexture: Texture2D; const AnPatchInfo: NPatchInfo; const Adest: Rectangle; const Aorigin: Vector2; const Arotation: Float32; const Atint: Color); external 'raylib.dll';
+public routine ColorIsEqual(const Acol1: Color; const Acol2: Color): Boolean; external 'raylib.dll';
+public routine Fade(const Acolor: Color; const Aalpha: Float32): Color; external 'raylib.dll';
+public routine ColorToInt(const Acolor: Color): Int32; external 'raylib.dll';
+public routine ColorNormalize(const Acolor: Color): Vector4; external 'raylib.dll';
+public routine ColorFromNormalized(const Anormalized: Vector4): Color; external 'raylib.dll';
+public routine ColorToHSV(const Acolor: Color): Vector3; external 'raylib.dll';
+public routine ColorFromHSV(const Ahue: Float32; const Asaturation: Float32; const Avalue: Float32): Color; external 'raylib.dll';
+public routine ColorTint(const Acolor: Color; const Atint: Color): Color; external 'raylib.dll';
+public routine ColorBrightness(const Acolor: Color; const Afactor: Float32): Color; external 'raylib.dll';
+public routine ColorContrast(const Acolor: Color; const Acontrast: Float32): Color; external 'raylib.dll';
+public routine ColorAlpha(const Acolor: Color; const Aalpha: Float32): Color; external 'raylib.dll';
+public routine ColorAlphaBlend(const Adst: Color; const Asrc: Color; const Atint: Color): Color; external 'raylib.dll';
+public routine ColorLerp(const Acolor1: Color; const Acolor2: Color; const Afactor: Float32): Color; external 'raylib.dll';
+public routine GetColor(const AhexValue: UInt32): Color; external 'raylib.dll';
+public routine GetPixelColor(const AsrcPtr: pointer to Pointer; const Aformat: Int32): Color; external 'raylib.dll';
+public routine SetPixelColor(const AdstPtr: pointer to Pointer; const Acolor: Color; const Aformat: Int32); external 'raylib.dll';
+public routine GetPixelDataSize(const Awidth: Int32; const Aheight: Int32; const Aformat: Int32): Int32; external 'raylib.dll';
+public routine GetFontDefault(): Font; external 'raylib.dll';
+public routine LoadFont(const AfileName: pointer to Char): Font; external 'raylib.dll';
+public routine LoadFontEx(const AfileName: pointer to Char; const AfontSize: Int32; const Acodepoints: pointer to Int32; const AcodepointCount: Int32): Font; external 'raylib.dll';
+public routine LoadFontFromImage(const Aimage: Image; const Akey: Color; const AfirstChar: Int32): Font; external 'raylib.dll';
+public routine LoadFontFromMemory(const AfileType: pointer to Char; const AfileData: pointer to UInt8; const AdataSize: Int32; const AfontSize: Int32; const Acodepoints: pointer to Int32; const AcodepointCount: Int32): Font; external 'raylib.dll';
+public routine IsFontValid(const Afont: Font): Boolean; external 'raylib.dll';
+public routine LoadFontData(const AfileData: pointer to UInt8; const AdataSize: Int32; const AfontSize: Int32; const Acodepoints: pointer to Int32; const AcodepointCount: Int32; const Atype: Int32): pointer to GlyphInfo; external 'raylib.dll';
+public routine GenImageFontAtlas(const Aglyphs: pointer to GlyphInfo; const AglyphRecs: pointer to pointer to Rectangle; const AglyphCount: Int32; const AfontSize: Int32; const Apadding: Int32; const ApackMethod: Int32): Image; external 'raylib.dll';
+public routine UnloadFontData(const Aglyphs: pointer to GlyphInfo; const AglyphCount: Int32); external 'raylib.dll';
+public routine UnloadFont(const Afont: Font); external 'raylib.dll';
+public routine ExportFontAsCode(const Afont: Font; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine DrawFPS(const AposX: Int32; const AposY: Int32); external 'raylib.dll';
+public routine DrawText(const Atext: pointer to Char; const AposX: Int32; const AposY: Int32; const AfontSize: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawTextEx(const Afont: Font; const Atext: pointer to Char; const Aposition: Vector2; const AfontSize: Float32; const Aspacing: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawTextPro(const Afont: Font; const Atext: pointer to Char; const Aposition: Vector2; const Aorigin: Vector2; const Arotation: Float32; const AfontSize: Float32; const Aspacing: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawTextCodepoint(const Afont: Font; const Acodepoint: Int32; const Aposition: Vector2; const AfontSize: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawTextCodepoints(const Afont: Font; const Acodepoints: pointer to Int32; const AcodepointCount: Int32; const Aposition: Vector2; const AfontSize: Float32; const Aspacing: Float32; const Atint: Color); external 'raylib.dll';
+public routine SetTextLineSpacing(const Aspacing: Int32); external 'raylib.dll';
+public routine MeasureText(const Atext: pointer to Char; const AfontSize: Int32): Int32; external 'raylib.dll';
+public routine MeasureTextEx(const Afont: Font; const Atext: pointer to Char; const AfontSize: Float32; const Aspacing: Float32): Vector2; external 'raylib.dll';
+public routine GetGlyphIndex(const Afont: Font; const Acodepoint: Int32): Int32; external 'raylib.dll';
+public routine GetGlyphInfo(const Afont: Font; const Acodepoint: Int32): GlyphInfo; external 'raylib.dll';
+public routine GetGlyphAtlasRec(const Afont: Font; const Acodepoint: Int32): Rectangle; external 'raylib.dll';
+public routine LoadUTF8(const Acodepoints: pointer to Int32; const Alength: Int32): pointer to Char; external 'raylib.dll';
+public routine UnloadUTF8(const Atext: pointer to Char); external 'raylib.dll';
+public routine LoadCodepoints(const Atext: pointer to Char; const Acount: pointer to Int32): pointer to Int32; external 'raylib.dll';
+public routine UnloadCodepoints(const Acodepoints: pointer to Int32); external 'raylib.dll';
+public routine GetCodepointCount(const Atext: pointer to Char): Int32; external 'raylib.dll';
+public routine GetCodepoint(const Atext: pointer to Char; const AcodepointSize: pointer to Int32): Int32; external 'raylib.dll';
+public routine GetCodepointNext(const Atext: pointer to Char; const AcodepointSize: pointer to Int32): Int32; external 'raylib.dll';
+public routine GetCodepointPrevious(const Atext: pointer to Char; const AcodepointSize: pointer to Int32): Int32; external 'raylib.dll';
+public routine CodepointToUTF8(const Acodepoint: Int32; const Autf8Size: pointer to Int32): pointer to Char; external 'raylib.dll';
+public routine TextCopy(const Adst: pointer to Char; const Asrc: pointer to Char): Int32; external 'raylib.dll';
+public routine TextIsEqual(const Atext1: pointer to Char; const Atext2: pointer to Char): Boolean; external 'raylib.dll';
+public routine TextLength(const Atext: pointer to Char): UInt32; external 'raylib.dll';
+public routine TextFormat(const Atext: pointer to Char; ...): pointer to Char; external 'raylib.dll';
+public routine TextSubtext(const Atext: pointer to Char; const Aposition: Int32; const Alength: Int32): pointer to Char; external 'raylib.dll';
+public routine TextReplace(const Atext: pointer to Char; const Areplace: pointer to Char; const Aby: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine TextInsert(const Atext: pointer to Char; const Ainsert: pointer to Char; const Aposition: Int32): pointer to Char; external 'raylib.dll';
+public routine TextJoin(const AtextList: pointer to pointer to Char; const Acount: Int32; const Adelimiter: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine TextSplit(const Atext: pointer to Char; const Adelimiter: Char; const Acount: pointer to Int32): pointer to pointer to Char; external 'raylib.dll';
+public routine TextAppend(const Atext: pointer to Char; const Aappend: pointer to Char; const Aposition: pointer to Int32); external 'raylib.dll';
+public routine TextFindIndex(const Atext: pointer to Char; const Afind: pointer to Char): Int32; external 'raylib.dll';
+public routine TextToUpper(const Atext: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine TextToLower(const Atext: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine TextToPascal(const Atext: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine TextToSnake(const Atext: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine TextToCamel(const Atext: pointer to Char): pointer to Char; external 'raylib.dll';
+public routine TextToInteger(const Atext: pointer to Char): Int32; external 'raylib.dll';
+public routine TextToFloat(const Atext: pointer to Char): Float32; external 'raylib.dll';
+public routine DrawLine3D(const AstartPos: Vector3; const AendPos: Vector3; const Acolor: Color); external 'raylib.dll';
+public routine DrawPoint3D(const Aposition: Vector3; const Acolor: Color); external 'raylib.dll';
+public routine DrawCircle3D(const Acenter: Vector3; const Aradius: Float32; const ArotationAxis: Vector3; const ArotationAngle: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawTriangle3D(const Av1: Vector3; const Av2: Vector3; const Av3: Vector3; const Acolor: Color); external 'raylib.dll';
+public routine DrawTriangleStrip3D(const Apoints: pointer to Vector3; const ApointCount: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCube(const Aposition: Vector3; const Awidth: Float32; const Aheight: Float32; const Alength: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCubeV(const Aposition: Vector3; const Asize: Vector3; const Acolor: Color); external 'raylib.dll';
+public routine DrawCubeWires(const Aposition: Vector3; const Awidth: Float32; const Aheight: Float32; const Alength: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCubeWiresV(const Aposition: Vector3; const Asize: Vector3; const Acolor: Color); external 'raylib.dll';
+public routine DrawSphere(const AcenterPos: Vector3; const Aradius: Float32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSphereEx(const AcenterPos: Vector3; const Aradius: Float32; const Arings: Int32; const Aslices: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawSphereWires(const AcenterPos: Vector3; const Aradius: Float32; const Arings: Int32; const Aslices: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCylinder(const Aposition: Vector3; const AradiusTop: Float32; const AradiusBottom: Float32; const Aheight: Float32; const Aslices: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCylinderEx(const AstartPos: Vector3; const AendPos: Vector3; const AstartRadius: Float32; const AendRadius: Float32; const Asides: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCylinderWires(const Aposition: Vector3; const AradiusTop: Float32; const AradiusBottom: Float32; const Aheight: Float32; const Aslices: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCylinderWiresEx(const AstartPos: Vector3; const AendPos: Vector3; const AstartRadius: Float32; const AendRadius: Float32; const Asides: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCapsule(const AstartPos: Vector3; const AendPos: Vector3; const Aradius: Float32; const Aslices: Int32; const Arings: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawCapsuleWires(const AstartPos: Vector3; const AendPos: Vector3; const Aradius: Float32; const Aslices: Int32; const Arings: Int32; const Acolor: Color); external 'raylib.dll';
+public routine DrawPlane(const AcenterPos: Vector3; const Asize: Vector2; const Acolor: Color); external 'raylib.dll';
+public routine DrawRay(const Aray: Ray; const Acolor: Color); external 'raylib.dll';
+public routine DrawGrid(const Aslices: Int32; const Aspacing: Float32); external 'raylib.dll';
+public routine LoadModel(const AfileName: pointer to Char): Model; external 'raylib.dll';
+public routine LoadModelFromMesh(const Amesh: Mesh): Model; external 'raylib.dll';
+public routine IsModelValid(const Amodel: Model): Boolean; external 'raylib.dll';
+public routine UnloadModel(const Amodel: Model); external 'raylib.dll';
+public routine GetModelBoundingBox(const Amodel: Model): BoundingBox; external 'raylib.dll';
+public routine DrawModel(const Amodel: Model; const Aposition: Vector3; const Ascale: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawModelEx(const Amodel: Model; const Aposition: Vector3; const ArotationAxis: Vector3; const ArotationAngle: Float32; const Ascale: Vector3; const Atint: Color); external 'raylib.dll';
+public routine DrawModelWires(const Amodel: Model; const Aposition: Vector3; const Ascale: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawModelWiresEx(const Amodel: Model; const Aposition: Vector3; const ArotationAxis: Vector3; const ArotationAngle: Float32; const Ascale: Vector3; const Atint: Color); external 'raylib.dll';
+public routine DrawModelPoints(const Amodel: Model; const Aposition: Vector3; const Ascale: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawModelPointsEx(const Amodel: Model; const Aposition: Vector3; const ArotationAxis: Vector3; const ArotationAngle: Float32; const Ascale: Vector3; const Atint: Color); external 'raylib.dll';
+public routine DrawBoundingBox(const Abox: BoundingBox; const Acolor: Color); external 'raylib.dll';
+public routine DrawBillboard(const Acamera: Camera; const Atexture: Texture2D; const Aposition: Vector3; const Ascale: Float32; const Atint: Color); external 'raylib.dll';
+public routine DrawBillboardRec(const Acamera: Camera; const Atexture: Texture2D; const Asource: Rectangle; const Aposition: Vector3; const Asize: Vector2; const Atint: Color); external 'raylib.dll';
+public routine DrawBillboardPro(const Acamera: Camera; const Atexture: Texture2D; const Asource: Rectangle; const Aposition: Vector3; const Aup: Vector3; const Asize: Vector2; const Aorigin: Vector2; const Arotation: Float32; const Atint: Color); external 'raylib.dll';
+public routine UploadMesh(const Amesh: pointer to Mesh; const Adynamic: Boolean); external 'raylib.dll';
+public routine UpdateMeshBuffer(const Amesh: Mesh; const Aindex: Int32; const Adata: pointer to Pointer; const AdataSize: Int32; const Aoffset: Int32); external 'raylib.dll';
+public routine UnloadMesh(const Amesh: Mesh); external 'raylib.dll';
+public routine DrawMesh(const Amesh: Mesh; const Amaterial: Material; const Atransform: Matrix); external 'raylib.dll';
+public routine DrawMeshInstanced(const Amesh: Mesh; const Amaterial: Material; const Atransforms: pointer to Matrix; const Ainstances: Int32); external 'raylib.dll';
+public routine GetMeshBoundingBox(const Amesh: Mesh): BoundingBox; external 'raylib.dll';
+public routine GenMeshTangents(const Amesh: pointer to Mesh); external 'raylib.dll';
+public routine ExportMesh(const Amesh: Mesh; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine ExportMeshAsCode(const Amesh: Mesh; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine GenMeshPoly(const Asides: Int32; const Aradius: Float32): Mesh; external 'raylib.dll';
+public routine GenMeshPlane(const Awidth: Float32; const Alength: Float32; const AresX: Int32; const AresZ: Int32): Mesh; external 'raylib.dll';
+public routine GenMeshCube(const Awidth: Float32; const Aheight: Float32; const Alength: Float32): Mesh; external 'raylib.dll';
+public routine GenMeshSphere(const Aradius: Float32; const Arings: Int32; const Aslices: Int32): Mesh; external 'raylib.dll';
+public routine GenMeshHemiSphere(const Aradius: Float32; const Arings: Int32; const Aslices: Int32): Mesh; external 'raylib.dll';
+public routine GenMeshCylinder(const Aradius: Float32; const Aheight: Float32; const Aslices: Int32): Mesh; external 'raylib.dll';
+public routine GenMeshCone(const Aradius: Float32; const Aheight: Float32; const Aslices: Int32): Mesh; external 'raylib.dll';
+public routine GenMeshTorus(const Aradius: Float32; const Asize: Float32; const AradSeg: Int32; const Asides: Int32): Mesh; external 'raylib.dll';
+public routine GenMeshKnot(const Aradius: Float32; const Asize: Float32; const AradSeg: Int32; const Asides: Int32): Mesh; external 'raylib.dll';
+public routine GenMeshHeightmap(const Aheightmap: Image; const Asize: Vector3): Mesh; external 'raylib.dll';
+public routine GenMeshCubicmap(const Acubicmap: Image; const AcubeSize: Vector3): Mesh; external 'raylib.dll';
+public routine LoadMaterials(const AfileName: pointer to Char; const AmaterialCount: pointer to Int32): pointer to Material; external 'raylib.dll';
+public routine LoadMaterialDefault(): Material; external 'raylib.dll';
+public routine IsMaterialValid(const Amaterial: Material): Boolean; external 'raylib.dll';
+public routine UnloadMaterial(const Amaterial: Material); external 'raylib.dll';
+public routine SetMaterialTexture(const Amaterial: pointer to Material; const AmapType: Int32; const Atexture: Texture2D); external 'raylib.dll';
+public routine SetModelMeshMaterial(const Amodel: pointer to Model; const AmeshId: Int32; const AmaterialId: Int32); external 'raylib.dll';
+public routine LoadModelAnimations(const AfileName: pointer to Char; const AanimCount: pointer to Int32): pointer to ModelAnimation; external 'raylib.dll';
+public routine UpdateModelAnimation(const Amodel: Model; const Aanim: ModelAnimation; const Aframe: Int32); external 'raylib.dll';
+public routine UpdateModelAnimationBones(const Amodel: Model; const Aanim: ModelAnimation; const Aframe: Int32); external 'raylib.dll';
+public routine UnloadModelAnimation(const Aanim: ModelAnimation); external 'raylib.dll';
+public routine UnloadModelAnimations(const Aanimations: pointer to ModelAnimation; const AanimCount: Int32); external 'raylib.dll';
+public routine IsModelAnimationValid(const Amodel: Model; const Aanim: ModelAnimation): Boolean; external 'raylib.dll';
+public routine CheckCollisionSpheres(const Acenter1: Vector3; const Aradius1: Float32; const Acenter2: Vector3; const Aradius2: Float32): Boolean; external 'raylib.dll';
+public routine CheckCollisionBoxes(const Abox1: BoundingBox; const Abox2: BoundingBox): Boolean; external 'raylib.dll';
+public routine CheckCollisionBoxSphere(const Abox: BoundingBox; const Acenter: Vector3; const Aradius: Float32): Boolean; external 'raylib.dll';
+public routine GetRayCollisionSphere(const Aray: Ray; const Acenter: Vector3; const Aradius: Float32): RayCollision; external 'raylib.dll';
+public routine GetRayCollisionBox(const Aray: Ray; const Abox: BoundingBox): RayCollision; external 'raylib.dll';
+public routine GetRayCollisionMesh(const Aray: Ray; const Amesh: Mesh; const Atransform: Matrix): RayCollision; external 'raylib.dll';
+public routine GetRayCollisionTriangle(const Aray: Ray; const Ap1: Vector3; const Ap2: Vector3; const Ap3: Vector3): RayCollision; external 'raylib.dll';
+public routine GetRayCollisionQuad(const Aray: Ray; const Ap1: Vector3; const Ap2: Vector3; const Ap3: Vector3; const Ap4: Vector3): RayCollision; external 'raylib.dll';
+public routine InitAudioDevice(); external 'raylib.dll';
+public routine CloseAudioDevice(); external 'raylib.dll';
+public routine IsAudioDeviceReady(): Boolean; external 'raylib.dll';
+public routine SetMasterVolume(const Avolume: Float32); external 'raylib.dll';
+public routine GetMasterVolume(): Float32; external 'raylib.dll';
+public routine LoadWave(const AfileName: pointer to Char): Wave; external 'raylib.dll';
+public routine LoadWaveFromMemory(const AfileType: pointer to Char; const AfileData: pointer to UInt8; const AdataSize: Int32): Wave; external 'raylib.dll';
+public routine IsWaveValid(const Awave: Wave): Boolean; external 'raylib.dll';
+public routine LoadSound(const AfileName: pointer to Char): Sound; external 'raylib.dll';
+public routine LoadSoundFromWave(const Awave: Wave): Sound; external 'raylib.dll';
+public routine LoadSoundAlias(const Asource: Sound): Sound; external 'raylib.dll';
+public routine IsSoundValid(const Asound: Sound): Boolean; external 'raylib.dll';
+public routine UpdateSound(const Asound: Sound; const Adata: pointer to Pointer; const AsampleCount: Int32); external 'raylib.dll';
+public routine UnloadWave(const Awave: Wave); external 'raylib.dll';
+public routine UnloadSound(const Asound: Sound); external 'raylib.dll';
+public routine UnloadSoundAlias(const Aalias: Sound); external 'raylib.dll';
+public routine ExportWave(const Awave: Wave; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine ExportWaveAsCode(const Awave: Wave; const AfileName: pointer to Char): Boolean; external 'raylib.dll';
+public routine PlaySound(const Asound: Sound); external 'raylib.dll';
+public routine StopSound(const Asound: Sound); external 'raylib.dll';
+public routine PauseSound(const Asound: Sound); external 'raylib.dll';
+public routine ResumeSound(const Asound: Sound); external 'raylib.dll';
+public routine IsSoundPlaying(const Asound: Sound): Boolean; external 'raylib.dll';
+public routine SetSoundVolume(const Asound: Sound; const Avolume: Float32); external 'raylib.dll';
+public routine SetSoundPitch(const Asound: Sound; const Apitch: Float32); external 'raylib.dll';
+public routine SetSoundPan(const Asound: Sound; const Apan: Float32); external 'raylib.dll';
+public routine WaveCopy(const Awave: Wave): Wave; external 'raylib.dll';
+public routine WaveCrop(const Awave: pointer to Wave; const AinitFrame: Int32; const AfinalFrame: Int32); external 'raylib.dll';
+public routine WaveFormat(const Awave: pointer to Wave; const AsampleRate: Int32; const AsampleSize: Int32; const Achannels: Int32); external 'raylib.dll';
+public routine LoadWaveSamples(const Awave: Wave): pointer to Float32; external 'raylib.dll';
+public routine UnloadWaveSamples(const Asamples: pointer to Float32); external 'raylib.dll';
+public routine LoadMusicStream(const AfileName: pointer to Char): Music; external 'raylib.dll';
+public routine LoadMusicStreamFromMemory(const AfileType: pointer to Char; const Adata: pointer to UInt8; const AdataSize: Int32): Music; external 'raylib.dll';
+public routine IsMusicValid(const Amusic: Music): Boolean; external 'raylib.dll';
+public routine UnloadMusicStream(const Amusic: Music); external 'raylib.dll';
+public routine PlayMusicStream(const Amusic: Music); external 'raylib.dll';
+public routine IsMusicStreamPlaying(const Amusic: Music): Boolean; external 'raylib.dll';
+public routine UpdateMusicStream(const Amusic: Music); external 'raylib.dll';
+public routine StopMusicStream(const Amusic: Music); external 'raylib.dll';
+public routine PauseMusicStream(const Amusic: Music); external 'raylib.dll';
+public routine ResumeMusicStream(const Amusic: Music); external 'raylib.dll';
+public routine SeekMusicStream(const Amusic: Music; const Aposition: Float32); external 'raylib.dll';
+public routine SetMusicVolume(const Amusic: Music; const Avolume: Float32); external 'raylib.dll';
+public routine SetMusicPitch(const Amusic: Music; const Apitch: Float32); external 'raylib.dll';
+public routine SetMusicPan(const Amusic: Music; const Apan: Float32); external 'raylib.dll';
+public routine GetMusicTimeLength(const Amusic: Music): Float32; external 'raylib.dll';
+public routine GetMusicTimePlayed(const Amusic: Music): Float32; external 'raylib.dll';
+public routine LoadAudioStream(const AsampleRate: UInt32; const AsampleSize: UInt32; const Achannels: UInt32): AudioStream; external 'raylib.dll';
+public routine IsAudioStreamValid(const Astream: AudioStream): Boolean; external 'raylib.dll';
+public routine UnloadAudioStream(const Astream: AudioStream); external 'raylib.dll';
+public routine UpdateAudioStream(const Astream: AudioStream; const Adata: pointer to Pointer; const AframeCount: Int32); external 'raylib.dll';
+public routine IsAudioStreamProcessed(const Astream: AudioStream): Boolean; external 'raylib.dll';
+public routine PlayAudioStream(const Astream: AudioStream); external 'raylib.dll';
+public routine PauseAudioStream(const Astream: AudioStream); external 'raylib.dll';
+public routine ResumeAudioStream(const Astream: AudioStream); external 'raylib.dll';
+public routine IsAudioStreamPlaying(const Astream: AudioStream): Boolean; external 'raylib.dll';
+public routine StopAudioStream(const Astream: AudioStream); external 'raylib.dll';
+public routine SetAudioStreamVolume(const Astream: AudioStream; const Avolume: Float32); external 'raylib.dll';
+public routine SetAudioStreamPitch(const Astream: AudioStream; const Apitch: Float32); external 'raylib.dll';
+public routine SetAudioStreamPan(const Astream: AudioStream; const Apan: Float32); external 'raylib.dll';
+public routine SetAudioStreamBufferSizeDefault(const Asize: Int32); external 'raylib.dll';
+public routine SetAudioStreamCallback(const Astream: AudioStream; const Acallback: AudioCallback); external 'raylib.dll';
+public routine AttachAudioStreamProcessor(const Astream: AudioStream; const Aprocessor: AudioCallback); external 'raylib.dll';
+public routine DetachAudioStreamProcessor(const Astream: AudioStream; const Aprocessor: AudioCallback); external 'raylib.dll';
+public routine AttachAudioMixedProcessor(const Aprocessor: AudioCallback); external 'raylib.dll';
+public routine DetachAudioMixedProcessor(const Aprocessor: AudioCallback); external 'raylib.dll';
+
+end.

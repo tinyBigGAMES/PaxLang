@@ -58,6 +58,7 @@ type
     function ResolveArrayType(const ANode: PASTNode): TPaxType;
     function ResolvePointerType(const ANode: PASTNode): TPaxType;
     function ResolveSetType(const ANode: PASTNode): TPaxType;
+    function ResolveEnumType(const ANode: PASTNode; const ATypeName: string): TPaxType;
     function ResolveRoutineType(const ANode: PASTNode): TPaxType;
 
     // Declaration processing
@@ -221,6 +222,7 @@ begin
     nkArrayType:    Result := ResolveArrayType(ANode);
     nkPointerType:  Result := ResolvePointerType(ANode);
     nkSetType:      Result := ResolveSetType(ANode);
+    nkEnumType:     Result := ResolveEnumType(ANode, '');
     nkRoutineType:  Result := ResolveRoutineType(ANode);
   else
     Error(ANode, ERR_SEMANTIC_UNKNOWN_TYPE, RSTypeUnknown, ['<invalid>']);
@@ -512,6 +514,89 @@ begin
     Result := FTypes.ErrorType;
 end;
 
+function TPaxChecker.ResolveEnumType(const ANode: PASTNode; const ATypeName: string): TPaxType;
+var
+  LI: Integer;
+  LChild: PASTNode;
+  LValueNode: PASTNode;
+  LInner: PASTNode;
+  LValueName: string;
+  LIntValue: Int64;
+  LNextValue: Int64;
+  LSym: TSymbol;
+begin
+  Result := FTypes.CreateEnumType(ATypeName);
+  LNextValue := 0;  // First enum value defaults to 0
+
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if LChild^.Kind = nkEnumValue then
+    begin
+      LValueName := LChild^.NodeName;
+
+      // Get the value expression (first child of enum value) if present
+      if GetASTChildCount(LChild) > 0 then
+      begin
+        LValueNode := GetASTChild(LChild, 0);
+
+        // Evaluate constant expression (must be integer literal)
+        if LValueNode^.Kind = nkIntLiteral then
+          LIntValue := LValueNode^.IntVal
+        else if LValueNode^.Kind = nkUnaryOp then
+        begin
+          // Handle negative values: -N
+          if (LValueNode^.Op = opNeg) and (GetASTChildCount(LValueNode) > 0) then
+          begin
+            LInner := GetASTChild(LValueNode, 0);
+            if LInner^.Kind = nkIntLiteral then
+              LIntValue := -LInner^.IntVal
+            else
+            begin
+              Error(LValueNode, ERR_SEMANTIC_CONST_EXPR_REQUIRED, 'Enum value must be a constant expression');
+              LIntValue := LNextValue;
+            end;
+          end
+          else
+          begin
+            Error(LValueNode, ERR_SEMANTIC_CONST_EXPR_REQUIRED, 'Enum value must be a constant expression');
+            LIntValue := LNextValue;
+          end;
+        end
+        else
+        begin
+          Error(LValueNode, ERR_SEMANTIC_CONST_EXPR_REQUIRED, 'Enum value must be a constant expression');
+          LIntValue := LNextValue;
+        end;
+      end
+      else
+      begin
+        // No explicit value - use auto-increment (previous + 1, or 0 for first)
+        LIntValue := LNextValue;
+      end;
+
+      // Update next value for auto-increment
+      LNextValue := LIntValue + 1;
+
+      // Add to enum type
+      if not Result.AddEnumValue(LValueName, LIntValue) then
+        Error(LChild, ERR_SEMANTIC_DUPLICATE_IDENT, RSNameDuplicate, [LValueName]);
+
+      // Register as module-level constant
+      if not FSymbols.ContainsLocal(LValueName) then
+      begin
+        LSym := FSymbols.Define(LValueName, skConst);
+        LSym.SymbolType := FTypes.Int32Type;  // Enum values are Int32
+        LSym.Value := LIntValue;
+        LSym.DeclNode := LChild;
+      end
+      else
+        Error(LChild, ERR_SEMANTIC_DUPLICATE_IDENT, RSNameDuplicate, [LValueName]);
+    end;
+  end;
+end;
+
 function TPaxChecker.ResolveRoutineType(const ANode: PASTNode): TPaxType;
 var
   LI: Integer;
@@ -712,6 +797,7 @@ procedure TPaxChecker.CheckTypeDecl(const ANode: PASTNode);
 var
   LSym: TSymbol;
   LType: TPaxType;
+  LTypeNode: PASTNode;
 begin
   // Check for duplicate
   if FSymbols.ContainsLocal(ANode^.NodeName) then
@@ -726,9 +812,15 @@ begin
 
   if GetASTChildCount(ANode) > 0 then
   begin
-    LType := ResolveType(GetASTChild(ANode, 0));
-    LType.TypeName := ANode^.NodeName;
-    FTypes.RegisterType(LType);
+    LTypeNode := GetASTChild(ANode, 0);
+    LType := ResolveType(LTypeNode);
+    // Only set TypeName for new type definitions (record, union, enum, etc.),
+    // not for type aliases (nkTypeRef) which share the underlying type object
+    if LTypeNode^.Kind <> nkTypeRef then
+    begin
+      LType.TypeName := ANode^.NodeName;
+      FTypes.RegisterType(LType);
+    end;
   end
   else
     LType := FTypes.ErrorType;
@@ -1349,6 +1441,7 @@ var
   LField: TPaxField;
   LQualifiedName: string;
   LSym: TSymbol;
+  LBaseSym: TSymbol;
 begin
   Result := FTypes.ErrorType;
 
@@ -1367,9 +1460,27 @@ begin
       Result := LSym.SymbolType;
       Exit;
     end;
+
+    // Check if base is a module - if so, accept it for cross-module access
+    // (actual symbol resolution happens at link time)
+    LBaseSym := FSymbols.Lookup(LBaseNode^.NodeName);
+    if (LBaseSym <> nil) and (LBaseSym.Kind = skModule) then
+    begin
+      // For module-qualified access, we can't type-check here
+      // Return ErrorType but don't report an error - link time will catch undefined symbols
+      Result := FTypes.ErrorType;
+      Exit;
+    end;
   end;
 
   LBaseType := CheckExpression(LBaseNode);
+
+  // Nil check - could happen for modules or other untyped symbols
+  if LBaseType = nil then
+  begin
+    Result := FTypes.ErrorType;
+    Exit;
+  end;
 
   if LBaseType.IsRecord() or LBaseType.IsUnion() then
   begin
@@ -1473,21 +1584,48 @@ begin
 
   LCalleeNode := GetASTChild(ANode, 0);
 
-  // Check if this is actually a type cast (type alias used as function-style cast)
+  // Check if this is actually a type cast or record literal construction
   // e.g., pchar(s) where pchar = pointer to char
+  // or Color(255, 0, 0, 255) where Color is a record type
   if LCalleeNode^.Kind = nkIdentifier then
   begin
     LSym := FSymbols.Lookup(LCalleeNode^.NodeName);
     if (LSym <> nil) and (LSym.Kind = skType) then
     begin
+      LTargetType := LSym.SymbolType;
+
+      // Check for record/union literal construction: TypeName(arg1, arg2, ...)
+      if (LTargetType <> nil) and (LTargetType.Kind in [tkRecord, tkUnion]) and
+         (GetASTChildCount(ANode) > 2) then
+      begin
+        // Validate argument count matches field count
+        LArgCount := GetASTChildCount(ANode) - 1;
+        LParamCount := LTargetType.Fields.Count;
+
+        if LArgCount <> LParamCount then
+          Error(ANode, ERR_SEMANTIC_ARG_COUNT_MISMATCH, RSSemanticArgCountMismatch, [LParamCount, LArgCount])
+        else
+        begin
+          // Type-check each argument against corresponding field type
+          for LI := 0 to LParamCount - 1 do
+          begin
+            LArgType := CheckExpression(GetASTChild(ANode, LI + 1));
+            if not TypesCompatible(LTargetType.Fields[LI].FieldType, LArgType) then
+              Error(GetASTChild(ANode, LI + 1), ERR_SEMANTIC_ARG_TYPE_MISMATCH,
+                RSSemanticArgTypeMismatch, [LI + 1, GetTypeName(LTargetType.Fields[LI].FieldType), GetTypeName(LArgType)]);
+          end;
+        end;
+
+        Result := LTargetType;
+        Exit;
+      end;
+
       // This is a type cast, not a call
       if GetASTChildCount(ANode) <> 2 then
       begin
         Error(ANode, ERR_SEMANTIC_ARG_COUNT_MISMATCH, RSSemanticArgCountMismatch, [1, GetASTChildCount(ANode) - 1]);
         Exit;
       end;
-
-      LTargetType := LSym.SymbolType;
       LSourceNode := GetASTChild(ANode, 1);
       LSourceType := CheckExpression(LSourceNode);
 

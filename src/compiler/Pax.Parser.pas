@@ -95,6 +95,7 @@ type
     function ParseArrayType(): PASTNode;
     function ParsePointerType(): PASTNode;
     function ParseSetType(): PASTNode;
+    function ParseEnumType(): PASTNode;
     function ParseRoutineType(): PASTNode;
     function ParseTypeName(): PASTNode;
 
@@ -715,8 +716,14 @@ begin
   begin
     LDeclPublic := AIsPublic;
 
-    if Match(tkPublic) then
+    // Check if this is "public type/const/var/routine" - new section, exit loop
+    if Check(tkPublic) then
+    begin
+      if PeekNext().Kind in [tkType, tkConst, tkVar, tkRoutine] then
+        Break;
+      Advance();
       LDeclPublic := True;
+    end;
 
     LDecl := ParseConstDecl(LDeclPublic);
     if LDecl <> nil then
@@ -772,8 +779,14 @@ begin
   begin
     LDeclPublic := AIsPublic;
 
-    if Match(tkPublic) then
+    // Check if this is "public type/const/var/routine" - new section, exit loop
+    if Check(tkPublic) then
+    begin
+      if PeekNext().Kind in [tkType, tkConst, tkVar, tkRoutine] then
+        Break;
+      Advance();
       LDeclPublic := True;
+    end;
 
     LDecl := ParseTypeDecl(LDeclPublic);
     if LDecl <> nil then
@@ -819,8 +832,14 @@ begin
   begin
     LDeclPublic := AIsPublic;
 
-    if Match(tkPublic) then
+    // Check if this is "public type/const/var/routine" - new section, exit loop
+    if Check(tkPublic) then
+    begin
+      if PeekNext().Kind in [tkType, tkConst, tkVar, tkRoutine] then
+        Break;
+      Advance();
       LDeclPublic := True;
+    end;
 
     LDecl := ParseVarDecl(LDeclPublic);
     if LDecl <> nil then
@@ -1102,6 +1121,8 @@ begin
     Result := ParseSetType()
   else if Check(tkRoutine) then
     Result := ParseRoutineType()
+  else if Check(tkLParen) then
+    Result := ParseEnumType()
   else
     Result := ParseTypeName();
 end;
@@ -1359,6 +1380,37 @@ begin
     if LElementType <> nil then
       AddASTChild(Result, LElementType);
   end;
+end;
+
+function TPaxParser.ParseEnumType(): PASTNode;
+var
+  LToken: TToken;
+  LValueToken: TToken;
+  LEnumValue: PASTNode;
+  LValueExpr: PASTNode;
+begin
+  // "(" EnumValue {"," EnumValue} ")"
+  // EnumValue = Identifier ["=" Expression]
+  LToken := Expect(tkLParen);
+  Result := CreateASTNodeWithToken(nkEnumType, LToken);
+
+  repeat
+    LValueToken := ExpectIdentifier();
+    LEnumValue := CreateASTNodeWithToken(nkEnumValue, LValueToken);
+    LEnumValue^.NodeName := LValueToken.Lexeme;
+
+    // Optional explicit value
+    if Match(tkEq) then
+    begin
+      LValueExpr := ParseExpression();
+      if LValueExpr <> nil then
+        AddASTChild(LEnumValue, LValueExpr);
+    end;
+
+    AddASTChild(Result, LEnumValue);
+  until not Match(tkComma);
+
+  Expect(tkRParen);
 end;
 
 function TPaxParser.ParseRoutineType(): PASTNode;

@@ -72,7 +72,8 @@ type
     tkRecord,
     tkUnion,
     tkSet,
-    tkRoutine
+    tkRoutine,
+    tkEnum
   );
 
   { TOutputType }
@@ -154,6 +155,9 @@ type
     FReturnType: TPaxType;
     FIsVariadic: Boolean;
 
+    // For enum types
+    FEnumValues: TDictionary<string, Int64>;
+
   public
     constructor Create(); override;
     destructor Destroy(); override;
@@ -174,6 +178,7 @@ type
     function IsRecord(): Boolean;
     function IsUnion(): Boolean;
     function IsSet(): Boolean;
+    function IsEnum(): Boolean;
     function IsRoutine(): Boolean;
     function IsVoid(): Boolean;
     function IsError(): Boolean;
@@ -181,6 +186,8 @@ type
     function GetField(const AName: string): TPaxField;
     function AddField(const AName: string; const AFieldType: TPaxType): TPaxField;
     function AddParam(const AName: string; const AParamType: TPaxType; const AMode: TPaxParamMode): TPaxParam;
+    function AddEnumValue(const AName: string; const AValue: Int64): Boolean;
+    function GetEnumValue(const AName: string; out AValue: Int64): Boolean;
 
     property Kind: TPaxTypeKind read FKind write FKind;
     property TypeName: string read FName write FName;
@@ -198,6 +205,7 @@ type
     property Params: TObjectList<TPaxParam> read FParams;
     property ReturnType: TPaxType read FReturnType write FReturnType;
     property IsVariadic: Boolean read FIsVariadic write FIsVariadic;
+    property EnumValues: TDictionary<string, Int64> read FEnumValues;
   end;
 
   { TPaxTypeRegistry }
@@ -248,6 +256,7 @@ type
     function CreateUnionType(const AName: string): TPaxType;
     function CreateSetType(const AElementType: TPaxType; const ALow, AHigh: Int64): TPaxType;
     function CreateRoutineType(const AReturnType: TPaxType): TPaxType;
+    function CreateEnumType(const AName: string): TPaxType;
 
     // Built-in type accessors
     property VoidType: TPaxType read FVoidType;
@@ -335,12 +344,14 @@ begin
   FParentType := nil;
   FIsPacked := False;
   FParams := TObjectList<TPaxParam>.Create(True);
+  FEnumValues := TDictionary<string, Int64>.Create();
   FReturnType := nil;
   FIsVariadic := False;
 end;
 
 destructor TPaxType.Destroy();
 begin
+  FEnumValues.Free();
   FParams.Free();
   FFields.Free();
 
@@ -428,6 +439,11 @@ begin
   Result := FKind = tkSet;
 end;
 
+function TPaxType.IsEnum(): Boolean;
+begin
+  Result := FKind = tkEnum;
+end;
+
 function TPaxType.IsRoutine(): Boolean;
 begin
   Result := FKind = tkRoutine;
@@ -484,6 +500,20 @@ begin
   Result.Mode := AMode;
 
   FParams.Add(Result);
+end;
+
+function TPaxType.AddEnumValue(const AName: string; const AValue: Int64): Boolean;
+begin
+  if FEnumValues.ContainsKey(LowerCase(AName)) then
+    Exit(False);
+
+  FEnumValues.Add(LowerCase(AName), AValue);
+  Result := True;
+end;
+
+function TPaxType.GetEnumValue(const AName: string; out AValue: Int64): Boolean;
+begin
+  Result := FEnumValues.TryGetValue(LowerCase(AName), AValue);
 end;
 
 { TPaxTypeRegistry }
@@ -741,6 +771,20 @@ begin
   FTypes.Add(Result);
 end;
 
+function TPaxTypeRegistry.CreateEnumType(const AName: string): TPaxType;
+begin
+  Result := TPaxType.Create();
+  Result.Kind := tkEnum;
+  Result.TypeName := AName;
+  Result.Size := 4;  // C enums are int-sized
+  Result.Alignment := 4;
+
+  FTypes.Add(Result);
+
+  if AName <> '' then
+    FTypeMap.Add(LowerCase(AName), Result);
+end;
+
 { Utility functions }
 
 function TypesEqual(const AType1, AType2: TPaxType): Boolean;
@@ -925,6 +969,7 @@ begin
     tkUnion:    Result := 'union';
     tkSet:      Result := 'set';
     tkRoutine:  Result := 'routine';
+    tkEnum:     Result := 'enum';
   else
     Result := 'unknown';
   end;

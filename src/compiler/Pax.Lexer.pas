@@ -59,6 +59,7 @@ type
     tkSet,
     tkPacked,
     tkUnion,
+    tkEnum,
     tkAlign,
     tkAddress,
     tkTo,
@@ -305,6 +306,7 @@ begin
     tkSet:         Result := '''set''';
     tkPacked:      Result := '''packed''';
     tkUnion:       Result := '''union''';
+    tkEnum:        Result := '''enum''';
     tkAlign:       Result := '''align''';
     tkAddress:     Result := '''address''';
     tkTo:          Result := '''to''';
@@ -404,7 +406,7 @@ begin
   Result := Kind in [
     tkModule, tkExe, tkDll, tkLib, tkImport, tkPublic, tkExternal,
     tkConst, tkType, tkVar, tkRoutine,
-    tkRecord, tkArray, tkPointer, tkSet, tkPacked, tkUnion, tkAlign, tkAddress, tkTo, tkOf,
+    tkRecord, tkArray, tkPointer, tkSet, tkPacked, tkUnion, tkEnum, tkAlign, tkAddress, tkTo, tkOf,
     tkBegin, tkEnd, tkTest,
     tkIf, tkThen, tkElse, tkWhile, tkDo, tkFor, tkDownto,
     tkRepeat, tkUntil, tkCase, tkReturn,
@@ -483,6 +485,7 @@ begin
   FKeywords.Add('set', tkSet);
   FKeywords.Add('packed', tkPacked);
   FKeywords.Add('union', tkUnion);
+  FKeywords.Add('enum', tkEnum);
   FKeywords.Add('align', tkAlign);
   FKeywords.Add('address', tkAddress);
   FKeywords.Add('to', tkTo);

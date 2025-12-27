@@ -43,6 +43,8 @@ type
     nkArrayType,
     nkPointerType,
     nkSetType,
+    nkEnumType,
+    nkEnumValue,
     nkRoutineType,
     nkTypeRef,
 
@@ -283,6 +285,8 @@ begin
     nkArrayType:      Result := 'ArrayType';
     nkPointerType:    Result := 'PointerType';
     nkSetType:        Result := 'SetType';
+    nkEnumType:       Result := 'EnumType';
+    nkEnumValue:      Result := 'EnumValue';
     nkRoutineType:    Result := 'RoutineType';
     nkTypeRef:        Result := 'TypeRef';
     nkBlock:          Result := 'Block';

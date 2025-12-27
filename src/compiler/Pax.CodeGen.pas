@@ -81,6 +81,7 @@ type
     procedure GenerateUnionType(const AFile: TSourceFile; const ANode: PASTNode; const AName: string);
     procedure GenerateAnonymousRecord(const AFile: TSourceFile; const ANode: PASTNode);
     procedure GenerateAnonymousUnion(const AFile: TSourceFile; const ANode: PASTNode);
+    procedure GenerateEnumType(const AFile: TSourceFile; const ANode: PASTNode; const AName: string);
     procedure GenerateVarDecl(const AFile: TSourceFile; const ANode: PASTNode; const AIsLocal: Boolean);
     procedure GenerateRoutineDecl(const ANode: PASTNode);
     procedure GenerateExternDecl(const AFile: TSourceFile; const ANode: PASTNode);
@@ -458,6 +459,7 @@ var
   LImportNode: PASTNode;
   LTypeDecl: PASTNode;
   LHasMain: Boolean;
+  LIsLib: Boolean;
   LModuleKind: string;
   LImportName: string;
   LTestBlocks: TList<PASTNode>;
@@ -469,6 +471,7 @@ begin
   LModuleKind := LowerCase(ANode^.StrVal);
   LHasMain := (LModuleKind = 'exe') or (LModuleKind = '''exe''') or (LModuleKind = '');
   FIsDLL := (LModuleKind = 'dll') or (LModuleKind = '''dll''');
+  LIsLib := (LModuleKind = 'lib') or (LModuleKind = '''lib''');
 
   // Generate preambles
   GenerateHeaderPreamble();
@@ -511,15 +514,36 @@ begin
         for LJ := 0 to GetASTChildCount(LChild) - 1 do
         begin
           LTypeDecl := GetASTChild(LChild, LJ);
-          if LTypeDecl^.IsPublic then
+          // For lib modules, emit ALL types to header (extern declarations need them)
+          if LIsLib or LTypeDecl^.IsPublic then
             GenerateTypeDecl(sfHeader, LTypeDecl);
+        end;
+      end
+      else if LChild^.NodeName = 'consts' then
+      begin
+        // For lib modules, emit public constants to header
+        if LIsLib then
+        begin
+          for LJ := 0 to GetASTChildCount(LChild) - 1 do
+          begin
+            LTypeDecl := GetASTChild(LChild, LJ);
+            if LTypeDecl^.IsPublic then
+              GenerateConstDecl(sfHeader, LTypeDecl);
+          end;
         end;
       end;
     end
     else if LChild^.Kind = nkTypeDecl then
     begin
-      if LChild^.IsPublic then
+      // For lib modules, emit ALL types to header (extern declarations need them)
+      if LIsLib or LChild^.IsPublic then
         GenerateTypeDecl(sfHeader, LChild);
+    end
+    else if LChild^.Kind = nkConstDecl then
+    begin
+      // For lib modules, emit public constants to header
+      if LIsLib and LChild^.IsPublic then
+        GenerateConstDecl(sfHeader, LChild);
     end;
   end;
 
@@ -531,15 +555,25 @@ begin
       GenerateRoutinePrototype(sfHeader, LChild);
   end;
 
-  // Generate extern declarations in header for external routines
+  // Generate extern declarations in header for external routines (only public ones)
   for LI := 0 to GetASTChildCount(ANode) - 1 do
   begin
     LChild := GetASTChild(ANode, LI);
-    if (LChild^.Kind = nkRoutineDecl) and LChild^.IsExternal then
+    if (LChild^.Kind = nkRoutineDecl) and LChild^.IsExternal and LChild^.IsPublic then
       GenerateExternDecl(sfHeader, LChild);
   end;
 
   GenerateHeaderPostamble();
+
+  // Generate extern declarations in source for all external routines
+  // (public ones are also in header, but source needs them too for forward declaration)
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+    if (LChild^.Kind = nkRoutineDecl) and LChild^.IsExternal then
+      GenerateExternDecl(sfSource, LChild);
+  end;
+  EmitLn(sfSource);
 
   // Second pass: generate all declarations in source
   for LI := 0 to GetASTChildCount(ANode) - 1 do
@@ -548,8 +582,13 @@ begin
 
     case LChild^.Kind of
       nkDirective:    GenerateDirective(LChild);
-      nkConstDecl:    GenerateConstDecl(sfSource, LChild);
-      nkTypeDecl:     GenerateTypeDecl(sfSource, LChild);
+      nkConstDecl:
+        begin
+          // For lib modules, skip public constants (already in header)
+          if not (LIsLib and LChild^.IsPublic) then
+            GenerateConstDecl(sfSource, LChild);
+        end;
+      nkTypeDecl:     if not LIsLib then GenerateTypeDecl(sfSource, LChild);  // lib types already in header
       nkVarDecl:      GenerateVarDecl(sfSource, LChild, False);
       nkRoutineDecl:  GenerateRoutineDecl(LChild);
       nkBlock:
@@ -557,12 +596,19 @@ begin
           if LChild^.NodeName = 'consts' then
           begin
             for LJ := 0 to GetASTChildCount(LChild) - 1 do
-              GenerateConstDecl(sfSource, GetASTChild(LChild, LJ));
+            begin
+              LTypeDecl := GetASTChild(LChild, LJ);
+              // For lib modules, skip public constants (already in header)
+              if not (LIsLib and LTypeDecl^.IsPublic) then
+                GenerateConstDecl(sfSource, LTypeDecl);
+            end;
           end
           else if LChild^.NodeName = 'types' then
           begin
-            for LJ := 0 to GetASTChildCount(LChild) - 1 do
-              GenerateTypeDecl(sfSource, GetASTChild(LChild, LJ));
+            // For lib modules, types are already in header
+            if not LIsLib then
+              for LJ := 0 to GetASTChildCount(LChild) - 1 do
+                GenerateTypeDecl(sfSource, GetASTChild(LChild, LJ));
           end
           else if LChild^.NodeName = 'vars' then
           begin
@@ -792,7 +838,14 @@ begin
     LValue := '0';
 
   if LType <> nil then
-    EmitLnFmt(AFile, 'const %s = %s;', [TypeToCDecl(LType, ANode^.NodeName), LValue])
+  begin
+    // Use 'static const' in headers to avoid multiple definition errors
+    // (C const at file scope has external linkage by default)
+    if AFile = sfHeader then
+      EmitLnFmt(AFile, 'static const %s = %s;', [TypeToCDecl(LType, ANode^.NodeName), LValue])
+    else
+      EmitLnFmt(AFile, 'const %s = %s;', [TypeToCDecl(LType, ANode^.NodeName), LValue]);
+  end
   else
     EmitLnFmt(AFile, '#define %s %s', [ANode^.NodeName, LValue]);
 end;
@@ -817,6 +870,8 @@ begin
       GenerateRecordType(AFile, LTypeNode, ANode^.NodeName);
     nkUnionType:
       GenerateUnionType(AFile, LTypeNode, ANode^.NodeName);
+    nkEnumType:
+      GenerateEnumType(AFile, LTypeNode, ANode^.NodeName);
     nkRoutineType:
       begin
         // Generate C function pointer typedef: typedef ReturnType (*TypeName)(params);
@@ -1138,6 +1193,49 @@ begin
 
   DecIndent();
   EmitLn(AFile, '};');
+end;
+
+procedure TPaxCodeGen.GenerateEnumType(const AFile: TSourceFile; const ANode: PASTNode; const AName: string);
+var
+  LI: Integer;
+  LChild: PASTNode;
+  LValueNode: PASTNode;
+  LValueExpr: string;
+  LFirst: Boolean;
+begin
+  EmitLnFmt(AFile, 'typedef enum %s {', [AName]);
+  IncIndent();
+
+  LFirst := True;
+  for LI := 0 to GetASTChildCount(ANode) - 1 do
+  begin
+    LChild := GetASTChild(ANode, LI);
+
+    if LChild^.Kind = nkEnumValue then
+    begin
+      if not LFirst then
+        EmitLn(AFile, ',');
+      LFirst := False;
+
+      // Only emit = value if there's an explicit value expression
+      if GetASTChildCount(LChild) > 0 then
+      begin
+        LValueNode := GetASTChild(LChild, 0);
+        LValueExpr := GenerateExpression(LValueNode);
+        EmitFmt(AFile, GetIndentStr() + '%s = %s', [LChild^.NodeName, LValueExpr]);
+      end
+      else
+      begin
+        // No explicit value - let C handle auto-increment
+        EmitFmt(AFile, GetIndentStr() + '%s', [LChild^.NodeName]);
+      end;
+    end;
+  end;
+
+  EmitLn(AFile);
+  DecIndent();
+  EmitLnFmt(AFile, '} %s;', [AName]);
+  EmitLn(AFile);
 end;
 
 procedure TPaxCodeGen.GenerateVarDecl(const AFile: TSourceFile; const ANode: PASTNode; const AIsLocal: Boolean);
@@ -2251,18 +2349,37 @@ begin
 
   LCalleeNode := GetASTChild(ANode, 0);
 
-  // Check if this is actually a type cast (type alias used as function-style cast)
+  // Check if this is actually a type cast or record literal construction
   // e.g., pchar(s) where pchar = pointer to char
+  // or Color(255, 0, 0, 255) where Color is a record type
   if (LCalleeNode^.Kind = nkIdentifier) and (FSymbols <> nil) then
   begin
     LSym := FSymbols.Lookup(LCalleeNode^.NodeName);
     if (LSym <> nil) and (LSym.Kind = skType) then
     begin
+      LTargetType := LSym.SymbolType;
+
+      // Check for record/union literal construction: TypeName(arg1, arg2, ...)
+      // Emits C99 compound literal: (TypeName){ arg1, arg2, ... }
+      if (LTargetType <> nil) and (LTargetType.Kind in [tkRecord, tkUnion]) and
+         (GetASTChildCount(ANode) > 2) then
+      begin
+        // Build argument list for compound literal
+        LArgs := '';
+        for LI := 1 to GetASTChildCount(ANode) - 1 do
+        begin
+          if LI > 1 then
+            LArgs := LArgs + ', ';
+          LArgExpr := GenerateExpression(GetASTChild(ANode, LI));
+          LArgs := LArgs + LArgExpr;
+        end;
+        Result := Format('(%s){ %s }', [TypeToC(LTargetType), LArgs]);
+        Exit;
+      end;
+
       // This is a type cast, not a call
       if GetASTChildCount(ANode) <> 2 then
         Exit('/* invalid cast */');
-
-      LTargetType := LSym.SymbolType;
       LArgExpr := GenerateExpression(GetASTChild(ANode, 1));
       LSourceType := GetExpressionType(GetASTChild(ANode, 1));
 

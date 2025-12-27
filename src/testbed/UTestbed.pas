@@ -18,13 +18,16 @@ procedure RunTestbed();
 implementation
 
 uses
+  WinApi.Windows,
   System.TypInfo,
   System.SysUtils,
   System.IOUtils,
+  System.Classes,
   Pax.Utils,
   Pax.LibTCC,
   Pax.Errors,
-  Pax.Compiler;
+  Pax.Compiler,
+  Pax.CImporter;
 
 
 procedure ShowErrors(const AErrors: TErrors);
@@ -45,6 +48,47 @@ begin
     WriteLn('  Msg:  ', LError.Message);
     WriteLn;
   end;
+end;
+
+procedure ImportRaylib();
+var
+  LImporter: TPaxCImporter;
+begin
+  TUtils.PrintLn('=== C Header to Pax Module Converter ===');
+  TUtils.PrintLn('');
+
+  LImporter := TPaxCImporter.Create();
+  try
+    LImporter.AddExcludedType('__builtin_va_list');
+    LImporter.AddExcludedType('va_list');
+    LImporter.AddExcludedType('__gnuc_va_list');
+
+    LImporter.AddLibraryPath('libs\raylib\bin');
+
+    LImporter.AddCopyDLL('libs\raylib\bin\raylib.dll');
+
+    LImporter.InsertFileBefore('(* External routines *)', 'libs\raylib\src\raylib_colors.txt');
+
+    // Optional settings - if not set, defaults are used:
+    // - ModuleName: derived from header filename
+    // - DllName: modulename.dll
+    // - OutputPath: same folder as header
+    LImporter.SetDllName('raylib.dll');
+    LImporter.SetOutputPath('libs\raylib\src');
+
+    TUtils.PrintLn('Importing raylib.h -> raylib.pax');
+
+    if LImporter.ImportHeader('libs\raylib\include\raylib.h') then
+      TUtils.PrintLn('SUCCESS')
+    else
+      TUtils.PrintLn('ERROR: %s', [LImporter.GetLastError()]);
+
+  finally
+    LImporter.Free();
+  end;
+
+  TUtils.PrintLn('');
+  TUtils.PrintLn('=== Done ===');
 end;
 
 procedure TestFile(const ABaseFilename: string);
@@ -76,7 +120,7 @@ procedure TestFiles();
 var
   LNum: Integer;
 begin
-  LNum := 32;
+  LNum := 41;
 
   case LNum of
     // STANDALONE EXE TESTS (no dependencies, any order)
@@ -126,6 +170,9 @@ begin
     // DLL TESTS (must build DLL first, then EXE)
     39: TestFile('test_dll_strings');      // Step 1: Build DLL
     40: TestFile('test_dll_strings_exe');  // Step 2: Build EXE
+
+    // Library Tests
+    41: TestFile('test_exe_raylib');
   end;
 end;
 
@@ -133,6 +180,8 @@ procedure RunTestbed();
 begin
   try
     TestFiles();
+    //Test01();
+    //Test02();
   except
     on E: Exception do
     begin

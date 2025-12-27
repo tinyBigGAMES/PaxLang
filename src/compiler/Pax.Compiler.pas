@@ -66,6 +66,7 @@ type
     FTCCOptions: TList<string>;
     FIncludePaths: TList<string>;
     FLibraryPaths: TList<string>;
+    FCopyDLLs: TList<string>;
 
     // Version info and post-build settings
     FAddVersionInfo: Boolean;
@@ -100,7 +101,7 @@ type
     function GetOutputPath(): string;
     procedure SetOutputPath(const APath: string);
     function GetOutputTypeFromAST(): TOutputType;
-    function CopyGCRuntime(const AOutputDir: string): Boolean;
+    function CopyRuntimeDLLs(const AOutputDir: string): Boolean;
     function SetupTCC(const AOutput: TLibTCCOutput): Boolean;
     function CompileImportedModules(): Boolean;
     function SaveGeneratedFiles(): Boolean;
@@ -202,6 +203,7 @@ begin
   FTCCOptions := TList<string>.Create();
   FIncludePaths := TList<string>.Create();
   FLibraryPaths := TList<string>.Create();
+  FCopyDLLs := TList<string>.Create();
 end;
 
 destructor TPaxCompiler.Destroy();
@@ -209,6 +211,7 @@ begin
   if FASTRoot <> nil then
     FreeASTNode(FASTRoot);
 
+  FCopyDLLs.Free();
   FLibraryPaths.Free();
   FIncludePaths.Free();
   FTCCOptions.Free();
@@ -299,6 +302,7 @@ begin
   FTCCOptions.Clear();
   FIncludePaths.Clear();
   FLibraryPaths.Clear();
+  FCopyDLLs.Clear();
 end;
 
 function TPaxCompiler.RunLexer(const ASource: string; const AFilename: string): Boolean;
@@ -377,6 +381,8 @@ begin
         FTCCOptions.Add(LValue)
       else if LName = '#includepath' then
         FIncludePaths.Add(LValue)
+      else if LName = '#copydll' then
+        FCopyDLLs.Add(LValue)
       // Preprocessor directives handled by codegen - skip silently
       else if (LName = '#define') or (LName = '#undef') or
               (LName = '#ifdef') or (LName = '#ifndef') or
@@ -741,19 +747,52 @@ begin
     Result := otLIB;
 end;
 
-function TPaxCompiler.CopyGCRuntime(const AOutputDir: string): Boolean;
+function TPaxCompiler.CopyRuntimeDLLs(const AOutputDir: string): Boolean;
 var
   LGCDestPath: string;
+  LDLLPath: string;
+  LDLLName: string;
+  LDestPath: string;
 begin
   Result := True;
 
-  LGCDestPath := TPath.Combine(AOutputDir, 'gc.dll');
+  Output('  Runtime DLLs:');
 
-  { Extract gc.dll from ZIP to output directory }
+  // Copy gc.dll from embedded resources
+  LGCDestPath := TPath.Combine(AOutputDir, 'gc.dll');
+  TUtils.CreateDirInPath(LGCDestPath);
   if not TZipVFS.ExtractFile('thirdparty\gc\bin\gc.dll', LGCDestPath, True) then
   begin
     FErrors.Add(esWarning, 'W950', 'gc.dll not found in embedded resources');
-    Exit(False);
+    Result := False;
+  end
+  else
+    Output('    ' + COLOR_BOLD + '%s' + COLOR_RESET, ['gc.dll']);
+
+  // Copy additional DLLs specified via #copydll directives
+  for LDLLPath in FCopyDLLs do
+  begin
+    if TFile.Exists(LDLLPath) then
+    begin
+      LDLLName := TPath.GetFileName(LDLLPath);
+      LDestPath := TPath.Combine(AOutputDir, LDLLName);
+      TUtils.CreateDirInPath(LDestPath);
+      try
+        TFile.Copy(LDLLPath, LDestPath, True);
+        Output('    ' + COLOR_BOLD + '%s' + COLOR_RESET, [LDLLName]);
+      except
+        on E: Exception do
+        begin
+          FErrors.Add(esWarning, 'W951', Format('Failed to copy DLL: %s - %s', [LDLLPath, E.Message]));
+          Result := False;
+        end;
+      end;
+    end
+    else
+    begin
+      FErrors.Add(esWarning, 'W952', Format('DLL not found: %s', [LDLLPath]));
+      Result := False;
+    end;
   end;
 end;
 
@@ -828,8 +867,7 @@ begin
         Result := BuildEXE(FOutputFilename);
         if Result then
         begin
-          Output('  Linking...');
-          CopyGCRuntime(LOutputDir);
+          CopyRuntimeDLLs(LOutputDir);
           Output('  Output: ' + COLOR_BOLD + '%s' + COLOR_RESET, [TPath.GetFullPath(FOutputFilename)]);
         end;
       end;
@@ -838,8 +876,7 @@ begin
         Result := BuildDLL(FOutputFilename);
         if Result then
         begin
-          Output('  Linking...');
-          CopyGCRuntime(LOutputDir);
+          CopyRuntimeDLLs(LOutputDir);
           Output('  Output: ' + COLOR_BOLD + '%s' + COLOR_RESET, [TPath.GetFullPath(FOutputFilename)]);
         end;
       end;
@@ -848,7 +885,6 @@ begin
         Result := BuildLIB(FOutputFilename);
         if Result then
         begin
-          Output('  Linking...');
           Output('  Output: ' + COLOR_BOLD + '%s' + COLOR_RESET, [TPath.GetFullPath(FOutputFilename)]);
         end;
       end;
@@ -1007,6 +1043,9 @@ var
   LValue: string;
   LOption: string;
   LPath: string;
+  LPair: TPair<string, TModuleInfo>;
+  LModule: TModuleInfo;
+  LModuleAST: PASTNode;
 begin
   if FASTRoot = nil then
     Exit;
@@ -1021,6 +1060,7 @@ begin
   for LPath in FIncludePaths do
     FTCC.AddIncludePath(LPath);
 
+  // Process directives from main module
   for LI := 0 to GetASTChildCount(FASTRoot) - 1 do
   begin
     LChild := GetASTChild(FASTRoot, LI);
@@ -1040,6 +1080,38 @@ begin
     else if (LChild^.Kind = nkRoutineDecl) and LChild^.IsExternal and (LChild^.ExternalLib <> '') then
     begin
       FTCC.AddLibrary(LChild^.ExternalLib);
+    end;
+  end;
+
+  // Process directives from imported modules (e.g., raylib's #library directive)
+  for LPair in FModuleLoader.Modules do
+  begin
+    LModule := LPair.Value;
+    if (LModule.State = msLoaded) and (LModule.ASTRoot <> nil) then
+    begin
+      LModuleAST := LModule.ASTRoot;
+      for LI := 0 to GetASTChildCount(LModuleAST) - 1 do
+      begin
+        LChild := GetASTChild(LModuleAST, LI);
+
+        if LChild^.Kind = nkDirective then
+        begin
+          LName := LowerCase(LChild^.NodeName);
+          LValue := LChild^.StrVal;
+
+          if LName = '#library' then
+            FTCC.AddLibrary(LValue)
+          else if LName = '#librarypath' then
+            FTCC.AddLibraryPath(LValue)
+          else if LName = '#copydll' then
+            FCopyDLLs.Add(LValue);
+        end
+        // Process external routines with DLL names from imported modules
+        else if (LChild^.Kind = nkRoutineDecl) and LChild^.IsExternal and (LChild^.ExternalLib <> '') then
+        begin
+          FTCC.AddLibrary(LChild^.ExternalLib);
+        end;
+      end;
     end;
   end;
 end;
@@ -1267,6 +1339,7 @@ begin
   end;
 
   // Save generated files to disk
+  Output('  Saving generated files...');
   if not SaveGeneratedFiles() then
     Exit;
 
@@ -1274,6 +1347,7 @@ begin
   LSourcePath := TPath.Combine(LGenPath, FModuleName + '.c');
 
   // Setup TCC for EXE output
+  Output('  Initializing TCC...');
   if not SetupTCC(opEXE) then
     Exit;
 
@@ -1301,6 +1375,7 @@ begin
   end;
 
   // Compile the runtime library
+  Output('  Compiling runtime...');
   LRuntimePath := TPath.Combine(GetTCCBasePath(), 'lib\pax_runtime.c');
   if not FTCC.AddFile(LRuntimePath) then
   begin
@@ -1320,10 +1395,13 @@ begin
   end;
 
   // Compile imported modules
+  if FModuleLoader.Modules.Count > 0 then
+    Output('  Compiling imports...');
   if not CompileImportedModules() then
     Exit;
 
   // Add the main source file
+  Output('  Compiling main...');
   if not FTCC.AddFile(LSourcePath) then
   begin
     //FErrors.Add(esFatal, 'E925', 'Failed to compile main module');
@@ -1335,6 +1413,7 @@ begin
   ProcessDirectivesPost();
 
   // Output the executable
+  Output('  Linking...');
   if not FTCC.OutputFile(AOutputPath) then
   begin
     FErrors.Add(esFatal, 'E923', Format('Failed to write executable: %s', [AOutputPath]));
@@ -1362,6 +1441,7 @@ begin
   end;
 
   // Save generated files to disk
+  Output('  Saving generated files...');
   if not SaveGeneratedFiles() then
     Exit;
 
@@ -1369,6 +1449,7 @@ begin
   LSourcePath := TPath.Combine(LGenPath, FModuleName + '.c');
 
   // Setup TCC for DLL output
+  Output('  Initializing TCC...');
   if not SetupTCC(opDLL) then
     Exit;
 
@@ -1383,6 +1464,7 @@ begin
   end;
 
   // Compile the runtime library
+  Output('  Compiling runtime...');
   LRuntimePath := TPath.Combine(GetTCCBasePath(), 'lib\pax_runtime.c');
   if not FTCC.AddFile(LRuntimePath) then
   begin
@@ -1390,12 +1472,14 @@ begin
     Exit;
   end;
 
-
   // Compile imported modules
+  if FModuleLoader.Modules.Count > 0 then
+    Output('  Compiling imports...');
   if not CompileImportedModules() then
     Exit;
 
   // Add the main source file
+  Output('  Compiling main...');
   if not FTCC.AddFile(LSourcePath) then
   begin
     //FErrors.Add(esFatal, 'E935', 'Failed to compile main module');
@@ -1407,6 +1491,7 @@ begin
   ProcessDirectivesPost();
 
   // Output the DLL
+  Output('  Linking...');
   if not FTCC.OutputFile(AOutputPath) then
   begin
     FErrors.Add(esFatal, 'E933', Format('Failed to write DLL: %s', [AOutputPath]));
@@ -1435,6 +1520,7 @@ begin
   end;
 
   // Save generated files to disk
+  Output('  Saving generated files...');
   if not SaveGeneratedFiles() then
     Exit;
 
@@ -1443,6 +1529,7 @@ begin
   LObjPath := TPath.Combine(LGenPath, FModuleName + '.o');
 
   // Setup TCC for OBJ output
+  Output('  Initializing TCC...');
   if not SetupTCC(opOBJ) then
     Exit;
 
@@ -1460,10 +1547,13 @@ begin
   // Runtime is linked when the final EXE/DLL is built
 
   // Compile imported modules (their code goes into the .o)
+  if FModuleLoader.Modules.Count > 0 then
+    Output('  Compiling imports...');
   if not CompileImportedModules() then
     Exit;
 
   // Add the main source file
+  Output('  Compiling main...');
   if not FTCC.AddFile(LSourcePath) then
     Exit;
 
@@ -1472,6 +1562,7 @@ begin
   ProcessDirectivesPost();
 
   // Output the object file (to generated folder as intermediate)
+  Output('  Creating object file...');
   if not FTCC.OutputFile(LObjPath) then
   begin
     FErrors.Add(esFatal, 'E943', Format('Failed to write object file: %s', [LObjPath]));
@@ -1482,6 +1573,7 @@ begin
   TUtils.CreateDirInPath(AOutputPath);
 
   // Create .a archive using TArArchiveWriter (native Delphi, no shell-out)
+  Output('  Creating archive...');
   LArchive := TArArchiveWriter.Create();
   try
     try
