@@ -28,24 +28,24 @@ begin
 end.
 ```
 
-## Key Features
+## ✨ Key Features
 
-- **Minimal by design** - Clean syntax, no redundancy, just what you need
-- **Pascal heritage** - Readable, structured code inspired by Pascal and Oberon
-- **Automatic memory** - Boehm GC handles allocation and cleanup
-- **Self-contained** - Embedded TinyCC toolchain, single executable distribution
-- **Windows native** - Call any DLL directly, full Windows API access
-- **Multiple outputs** - Build executables, DLLs, or static libraries
-- **Type extension** - Record inheritance without class complexity
-- **Union types** - C-compatible unions with anonymous nesting
-- **Dynamic arrays** - setlength/len with automatic memory management
-- **Managed strings** - UTF-8 and UTF-16 string types with emoji support
-- **Varargs support** - Full C interop with printf-style functions
-- **Built-in testing** - Integrated unit test framework
-- **Version info** - Embed metadata and icons in executables
-- **C header import** - Convert C headers to Pax modules automatically
+- 🎯 **Minimal by design** - Clean syntax, no redundancy, just what you need
+- 📖 **Pascal heritage** - Readable, structured code inspired by Pascal and Oberon
+- 🧹 **Automatic memory** - Boehm GC handles allocation and cleanup
+- 📦 **Self-contained** - Embedded TinyCC toolchain, single executable distribution
+- 🪟 **Windows native** - Call any DLL directly, full Windows API access
+- 🎛️ **Multiple outputs** - Build executables, DLLs, or static libraries
+- 🧬 **Type extension** - Record inheritance without class complexity
+- 🔀 **Union types** - C-compatible unions with anonymous nesting
+- 📊 **Dynamic arrays** - setlength/len with automatic memory management
+- 📝 **Managed strings** - UTF-8 and UTF-16 string types with emoji support
+- 🔌 **Varargs support** - Full C interop with printf-style functions
+- 🧪 **Built-in testing** - Integrated unit test framework
+- 🏷️ **Version info** - Embed metadata and icons in executables
+- 🔄 **C header import** - Convert C headers to Pax modules automatically
 
-## Language Overview
+## 📘 Language Overview
 
 ### Built-in Types
 
@@ -573,7 +573,7 @@ begin
 end.
 ```
 
-## Directives Reference
+## 📋 Directives Reference
 
 ### Build Directives
 
@@ -625,7 +625,7 @@ end.
 | #vicopyright 'text' | Copyright notice |
 | #exeicon 'path' | Executable icon |
 
-## C Header Importer
+## 🔧 C Header Importer
 
 Pax includes a built-in C header importer that converts C headers into Pax module source code. It uses TCC for preprocessing (expanding macros, includes) then parses the result to generate Pax declarations.
 
@@ -646,7 +646,7 @@ The importer handles:
 - Pointer types and arrays
 - Forward declarations for opaque types
 
-## Architecture
+## 🏗️ Architecture
 
 The compiler is built in Delphi with a clean pipeline architecture:
 
@@ -673,7 +673,7 @@ The compiler is built in Delphi with a clean pipeline architecture:
 | Pax.Errors | Error types, codes, and diagnostic formatting |
 | Pax.CImporter | C header to Pax module converter |
 
-## Status
+## 📊 Status
 
 **Under active development.**
 
@@ -701,7 +701,7 @@ The core compiler is functional and can produce working executables, DLLs, and s
 - Enumeration types
 - C header importer
 
-## Building
+## 🔨 Building
 
 ### Get the Source
 
@@ -719,7 +719,7 @@ git clone https://github.com/tinyBigGAMES/PaxLang.git
 
 That's it! Everything is included - TinyCC, Boehm GC, and runtime resources are already bundled in the repo. The compiled executable will be output to the bin folder.
 
-## Requirements
+## 📋 Requirements
 
 | | Minimum | Tested |
 |---|---------|--------|
@@ -728,15 +728,15 @@ That's it! Everything is included - TinyCC, Boehm GC, and runtime resources are 
 
 **Dependencies:** None for end users - TinyCC and Boehm GC are embedded.
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Join our [Discord](https://discord.gg/tPWjMwK) to discuss development.
 
-## License
+## 📄 License
 
 Pax is licensed under the **Apache License 2.0**. See [LICENSE](https://github.com/tinyBigGAMES/PaxLang/tree/main?tab=License-1-ov-file#readme) for details.
 
-## Links
+## 🔗 Links
 
 - [Discord](https://discord.gg/tPWjMwK)
 - [Bluesky](https://bsky.app/profile/tinybiggames.com)
